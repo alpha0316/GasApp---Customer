@@ -17,7 +17,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.gasapp.customer",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "GasApp uses your location to show nearby filling stations and route your delivery."
+        "NSLocationWhenInUseUsageDescription": "GasApp uses your location to show nearby filling stations and route your delivery.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
