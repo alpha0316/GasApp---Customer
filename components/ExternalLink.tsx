@@ -10,7 +10,10 @@ export function ExternalLink({ href, ...rest }: Props) {
     <Link
       target="_blank"
       {...rest}
-      href={href}
+      // Expo Router's typed routes only know internal app routes; this
+      // component is specifically for arbitrary external URLs, so the
+      // literal-union `Href` type doesn't apply here.
+      href={href as any}
       onPress={async (event) => {
         if (Platform.OS !== 'web') {
           // Prevent the default behavior of linking to the default browser on native.

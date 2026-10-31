@@ -23,10 +23,10 @@ const PrimaryButton: React.FC<PrimaryButtonProps> = ({ title, onPress, style, te
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: '#000',
+    backgroundColor: '#007AFF',
     borderRadius: 24,
     alignItems: 'center',
-    height : 55,
+    height : 48,
     justifyContent : 'center'
   },
   buttonText: {

@@ -1,47 +1,67 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, TextInput, Alert, StyleSheet, TouchableOpacity } from 'react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import PrimaryButton from '@/components/PrimaryButton';
 import BackButton from '@/components/BackButton';
+import { findUserByPhone, findUserByEmail, setSession } from '@/lib/mockUserStore';
 
-const OTPVerification = ({ navigation, route }) => {
+const OTPVerification = () => {
+  const navigation = useNavigation();
+  const route = useRoute();
   const [otp, setOtp] = useState(['', '', '', '']);
-  const inputsRef = useRef([]);
-  const { confirmation } = route?.params || {}; // Safely access route.params
+  const [verifying, setVerifying] = useState(false);
+  const inputsRef = useRef<(TextInput | null)[]>([]);
+  const { channel = 'phone', target = '' } = (route?.params as { channel?: string; target?: string }) || {};
 
-  const handleInputChange = (value, index) => {
+  const handleInputChange = (value: string, index: number) => {
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
 
-    // Move to the next input if a digit is entered
     if (value && index < inputsRef.current.length - 1) {
-      inputsRef.current[index + 1].focus();
-    }
-    // Move to the previous input if a digit is deleted
-    else if (!value && index > 0) {
-      inputsRef.current[index - 1].focus();
+      inputsRef.current[index + 1]?.focus();
+    } else if (!value && index > 0) {
+      inputsRef.current[index - 1]?.focus();
     }
   };
 
   const handleVerifyOTP = async () => {
-    const otpCode = otp.join('');
+    // Placeholder verification — any 4-digit code is accepted until the real
+    // OTP backend (SMS/email sending + verification) is wired up.
+    setVerifying(true);
     try {
-      await confirmation.confirm(otpCode);
-      Alert.alert('Success', 'Phone number verified!');
-      navigation.navigate('Home');
-    } catch (error) {
-      Alert.alert('Error', 'Invalid OTP code. Please try again.');
+      const existing = channel === 'phone' ? await findUserByPhone(target) : await findUserByEmail(target);
+
+      if (existing) {
+        await setSession(existing);
+        navigation.navigate('Home');
+        return;
+      }
+
+      if (channel === 'phone') {
+        navigation.navigate('CompleteProfile', {
+          method: 'phone',
+          knownPhone: target,
+          requireFullName: true,
+          requireEmail: false,
+          requirePhone: false,
+        });
+      } else {
+        navigation.navigate('CompleteProfile', {
+          method: 'email',
+          knownEmail: target,
+          requireFullName: true,
+          requireEmail: false,
+          requirePhone: true,
+        });
+      }
+    } finally {
+      setVerifying(false);
     }
   };
 
-  const handleResendOTP = async () => {
-    try {
-      const confirmation = await auth().signInWithPhoneNumber(`+233${input}`);
-      Alert.alert('OTP Resent', 'A new verification code has been sent to your phone.');
-      navigation.navigate('SelectSchool', { confirmation });
-    } catch (error) {
-      Alert.alert('Error', error.message);
-    }
+  const handleResendOTP = () => {
+    Alert.alert('OTP Resent', `A new verification code has been sent to ${target || 'your contact'}.`);
   };
 
   const isButtonDisabled = otp.some((value) => value === '');
@@ -49,19 +69,21 @@ const OTPVerification = ({ navigation, route }) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <BackButton onPress={() => navigation.goBack()} />
+        <View style={styles.backButtonWrapper}>
+          <BackButton onPress={() => navigation.goBack()} />
+        </View>
         <Text style={styles.headerTitle}>OTP Verification</Text>
       </View>
       <Text style={styles.label}>Enter OTP Code</Text>
       <Text style={styles.subtitle}>
-        Enter the verification code we just sent to your mobile number.
+        Enter the verification code we just sent to {channel === 'email' ? 'your email' : 'your mobile number'}.
       </Text>
 
       <View style={styles.otpContainer}>
         {otp.map((value, index) => (
           <TextInput
             key={index}
-            ref={(ref) => (inputsRef.current[index] = ref)}
+            ref={(ref) => { inputsRef.current[index] = ref; }}
             style={[
               styles.input,
               {
@@ -79,7 +101,7 @@ const OTPVerification = ({ navigation, route }) => {
         ))}
       </View>
 
-      <PrimaryButton title="Verify" disabled={isButtonDisabled} onPress={() => navigation.navigate('GeneralDetails')} />
+      <PrimaryButton title={verifying ? 'Verifying...' : 'Verify'} disabled={isButtonDisabled || verifying} onPress={handleVerifyOTP} />
 
       <View style={styles.resendContainer}>
         <Text style={styles.resendText}>Didn’t receive a code? </Text>
@@ -110,17 +132,22 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     marginVertical: 16,
-    gap : '80%'
-
+    position: 'relative',
+  },
+  backButtonWrapper: {
+    position: 'absolute',
+    left: 0,
+    zIndex: 1,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
+    textAlign: 'center',
   },
   otpContainer: {
     flexDirection: 'row',
-    // gap: 30,
     marginBottom: 12,
     justifyContent: 'space-between'
   },

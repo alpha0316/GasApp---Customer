@@ -35,16 +35,19 @@ export default function SelectCylinder() {
     }
   };
 
-  const calculateTotalCost = (selectedPrice) => {
-    let offerPrice = parseFloat(route.params.offerPrice);
-    let cylinderCost = parseFloat(selectedPrice.split(' ')[1]); 
-    let total = offerPrice + cylinderCost;
+  const calculateTotalCost = (selectedPrice: string) => {
+    let cylinderCost = parseFloat(selectedPrice.split(' ')[1]);
+    let total = parseFloat(offerPrice) + cylinderCost;
     setTotalCost(total);
   };
 
   const navigation = useNavigation();
   const route = useRoute();
-  const { offerName, offerPrice, offerId } = route.params;
+  const { offerName, offerPrice, offerId } = route.params as {
+    offerName: string;
+    offerPrice: string;
+    offerId?: string;
+  };
 
   const isButtonDisabled = !selectedMedium && !selectedSmall
 
@@ -172,6 +175,14 @@ const styles = StyleSheet.create({
   },
   priceText: {
     color: 'rgba(0, 0, 0, 0.60)',
+  },
+  price: {
+    fontWeight: '700',
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
   },
   selectedBackground: {
     backgroundColor: '#F6F6F6', // Replace with your desired color

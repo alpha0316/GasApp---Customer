@@ -14,13 +14,19 @@ import * as Location from 'expo-location';
 import PrimaryButton from '@/components/PrimaryButton';
 import BackButton from '@/components/BackButton';
 import OpenStreetMapComponent from './OpenStreetMapComponent';
-import Geolocation from '@react-native-community/geolocation';
 
+
+type Coords = { latitude: number; longitude: number };
 
 export default function SelectLocation() {
   const navigation = useNavigation();
   const route = useRoute();
-  const { offerName, offerPrice, totalCost, price } = route.params;
+  const { offerName, offerPrice, totalCost, price } = route.params as {
+    offerName: string;
+    offerPrice: number;
+    totalCost: number;
+    price: string;
+  };
 
   const [currentLocation, setCurrentLocation] = useState('');
   const [region, setRegion] = useState({
@@ -29,7 +35,7 @@ export default function SelectLocation() {
     latitudeDelta: 0.01,
     longitudeDelta: 0.01,
   });
-  const [marker, setMarker] = useState(null);
+  const [marker, setMarker] = useState<Coords | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -52,7 +58,7 @@ export default function SelectLocation() {
     })();
   }, []);
 
-  const updateAddress = async ({ latitude, longitude }) => {
+  const updateAddress = async ({ latitude, longitude }: Coords) => {
     try {
       const [address] = await Location.reverseGeocodeAsync({ latitude, longitude });
       setCurrentLocation(address ? `${address.street || ''}, ${address.city || ''}` : 'Custom Location');
@@ -62,14 +68,14 @@ export default function SelectLocation() {
     }
   };
 
-  const handleMapPress = async (e) => {
+  const handleMapPress = async (e: { nativeEvent: { coordinate: Coords } }) => {
     const { latitude, longitude } = e.nativeEvent.coordinate;
     setMarker({ latitude, longitude });
     setRegion({ ...region, latitude, longitude });
     updateAddress({ latitude, longitude });
   };
 
-  const handleLocationSelect = (locationName, coords) => {
+  const handleLocationSelect = (locationName: string, coords: Coords) => {
     setCurrentLocation(locationName);
     setMarker(coords);
     setRegion({ ...region, ...coords });

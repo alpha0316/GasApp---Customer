@@ -14,7 +14,7 @@ export default function Notification() {
   return (
     <View style={styles.main}>
       <View style={styles.header}>
-        <BackButton onPress={() => navigation.goBack()} />
+        <BackButton />
         <Text style={styles.headerTitle}>Notification</Text>
       </View>
       

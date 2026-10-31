@@ -34,7 +34,7 @@ interface Coordinates {
   longitude: number;
 }
 
-function OpenStreetMapComponent({}: MapGLProps) {
+function OpenStreetMapComponent() {
   const mapRef = useRef<MapView>(null);
 
   const DEFAULT_LONGITUDE = -1.573568; // Kumasi, Ghana
@@ -212,7 +212,6 @@ function OpenStreetMapComponent({}: MapGLProps) {
           urlTemplate="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           maximumZ={19}
           tileSize={256}
-          onError={(error) => console.error('Tile loading error:', error)}
         />
 
         {/* User Location Marker */}

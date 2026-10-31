@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, TouchableOpacity } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { auth, FIREBASE_AUTH } from '../../firebaseConfig';
 import PrimaryButton from '@/components/PrimaryButton';
 import BackButton from '@/components/BackButton';
 
 
 
-const PhoneNumber = ({ navigation }) => {
+const PhoneNumber = () => {
+  const navigation = useNavigation();
 
   
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -34,7 +36,7 @@ const PhoneNumber = ({ navigation }) => {
   return (
     <View style={styles.container}>
        <View style={styles.header}>
-        <BackButton onPress={() => navigation.goBack()} />
+        <BackButton />
       </View>
 
       <View style={{
@@ -75,7 +77,11 @@ const PhoneNumber = ({ navigation }) => {
             returnKeyType="done"
             
           />
-          <PrimaryButton title='Sign In'  disabled={isButtonDisabled} onPress={() => navigation.navigate('OTPVerification')} />
+          <PrimaryButton
+            title='Continue'
+            disabled={isButtonDisabled}
+            onPress={() => navigation.navigate('OTPVerification', { channel: 'phone', target: phoneNumber })}
+          />
           <View>
             <Text style={{
                 fontSize : 16,

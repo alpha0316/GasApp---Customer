@@ -1,7 +1,14 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
 
-const SecondaryButton = ({ onPress, title, selected, width }) => {
+interface SecondaryButtonProps {
+  onPress: () => void;
+  title: string;
+  selected?: boolean;
+  width?: number | `${number}%`;
+}
+
+const SecondaryButton = ({ onPress, title, selected, width }: SecondaryButtonProps) => {
   return (
     <TouchableOpacity
       onPress={onPress}

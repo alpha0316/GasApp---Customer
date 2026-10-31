@@ -1,105 +1,133 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { View, Text, TextInput, StyleSheet, Alert } from 'react-native';
 import PrimaryButton from '@/components/PrimaryButton';
 import BackButton from '@/components/BackButton';
-import { useNavigation } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { FIREBASE_AUTH } from './../../firebaseConfig';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { createUser, findUserByPhone, setSession } from '@/lib/mockUserStore';
 
+// Finishes sign-up for whichever method the user came from — fields shown
+// depend on what that method already knows about them:
+//   phone + OTP  -> full name (required), email (optional)
+//   google       -> phone number (required); name/email already known
+//   email + OTP  -> full name (required), phone number (required)
 export default function GeneralDetails() {
   const navigation = useNavigation();
+  const route = useRoute();
+  const {
+    method = 'phone',
+    knownFullName = '',
+    knownEmail = '',
+    knownPhone = '',
+    requireFullName = true,
+    requireEmail = false,
+    requirePhone = false,
+    optionalEmail = method === 'phone',
+  } = (route.params as any) || {};
 
+  const [fullName, setFullName] = useState(knownFullName);
+  const [email, setEmail] = useState(knownEmail);
+  const [phone, setPhone] = useState(knownPhone);
+  const [submitting, setSubmitting] = useState(false);
 
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
- 
+  const emailRef = useRef<TextInput>(null);
+  const phoneRef = useRef<TextInput>(null);
 
+  const isButtonDisabled =
+    submitting ||
+    (requireFullName && fullName.trim() === '') ||
+    (requirePhone && phone.trim().length < 10);
 
-  const lastNameRef = useRef(null);
-  const emailRef = useRef(null);
-  const phoneNumberRef = useRef(null);
-
-
-  const handleNext = (nextRef) => {
-    nextRef.current.focus();
-  };
-
- {/*}
-  const handleSignUp = async () => {
-    if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
-      return;
-    }
-
-    // Sign up the user with Firebase
+  const handleFinish = async () => {
+    setSubmitting(true);
     try {
-      const userCredential = await createUserWithEmailAndPassword(FIREBASE_AUTH, email, password);
-      const user = userCredential.user;
+      const resolvedPhone = requirePhone ? phone : knownPhone;
 
-      // Save user details to AsyncStorage
-      const userDetails = {
-        firstName,
-        lastName,
-        email,
-        phoneNumber,
-        userId: user.uid,
-      };
-      await AsyncStorage.setItem('userDetails', JSON.stringify(userDetails));
-      await AsyncStorage.setItem('userId', user.uid);
+      if (requirePhone && resolvedPhone) {
+        const existing = await findUserByPhone(resolvedPhone);
+        if (existing) {
+          Alert.alert(
+            'Account already exists',
+            'This phone number is linked to an existing account. Signing you in there instead.',
+            [
+              {
+                text: 'OK',
+                onPress: async () => {
+                  await setSession(existing);
+                  navigation.navigate('Home');
+                },
+              },
+            ],
+          );
+          return;
+        }
+      }
 
-      navigation.navigate('SelectHostel');
-    } catch (error) {
-      console.error('Error signing up:', error);
-      Alert.alert('Error', 'An error occurred while signing up. Please try again.');
+      await createUser({
+        fullName: requireFullName ? fullName.trim() : knownFullName,
+        email: requireEmail || optionalEmail ? email.trim() || undefined : knownEmail || undefined,
+        phone: resolvedPhone || undefined,
+        method,
+      });
+      navigation.navigate('Home');
+    } finally {
+      setSubmitting(false);
     }
-  };*/}
-
-  const isButtonDisabled = firstName === '' && lastName === '' && email === '' 
+  };
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <BackButton onPress={() => navigation.goBack()} />
-        <Text style={styles.headerTitle}>General Details</Text>
+        <Text style={styles.headerTitle}>Complete Your Profile</Text>
       </View>
 
-      <Text style={styles.label}>First Name</Text>
-      <TextInput
-        style={styles.input}
-        value={firstName}
-        onChangeText={setFirstName}
-        returnKeyType="next"
-        onSubmitEditing={() => handleNext(lastNameRef)}
-        placeholder='Enter your first name'
-      />
-      <Text style={styles.label}>Last Name</Text>
-      <TextInput
-        ref={lastNameRef}
-        style={styles.input}
-        value={lastName}
-        onChangeText={setLastName}
-        returnKeyType="next"
-        onSubmitEditing={() => handleNext(emailRef)}
-        placeholder=''
-      />
-      <Text style={styles.label}>Email</Text>
-      <TextInput
-        ref={emailRef}
-        style={styles.input}
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-        returnKeyType="next"
-        onSubmitEditing={() => handleNext(phoneNumberRef)}
-        placeholder=''
-      />
-     
-      <PrimaryButton title="Next" disabled={isButtonDisabled} onPress={() => navigation.navigate('OrderIDPage')} />
-      <View style={styles.text}>
-      </View>
+      {requireFullName && (
+        <>
+          <Text style={styles.label}>Full Name</Text>
+          <TextInput
+            style={styles.input}
+            value={fullName}
+            onChangeText={setFullName}
+            returnKeyType={requireEmail || optionalEmail ? 'next' : requirePhone ? 'next' : 'done'}
+            onSubmitEditing={() => (requireEmail || optionalEmail ? emailRef.current?.focus() : phoneRef.current?.focus())}
+            placeholder="Enter your full name"
+          />
+        </>
+      )}
+
+      {(requireEmail || optionalEmail) && (
+        <>
+          <Text style={styles.label}>Email {optionalEmail && !requireEmail ? '(optional)' : ''}</Text>
+          <TextInput
+            ref={emailRef}
+            style={styles.input}
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            returnKeyType={requirePhone ? 'next' : 'done'}
+            onSubmitEditing={() => phoneRef.current?.focus()}
+            placeholder="Enter your email"
+          />
+        </>
+      )}
+
+      {requirePhone && (
+        <>
+          <Text style={styles.label}>Phone Number</Text>
+          <TextInput
+            ref={phoneRef}
+            style={styles.input}
+            value={phone}
+            onChangeText={setPhone}
+            keyboardType="numeric"
+            returnKeyType="done"
+            placeholder="Enter your phone number"
+          />
+        </>
+      )}
+
+      <PrimaryButton title={submitting ? 'Saving...' : 'Finish'} disabled={isButtonDisabled} onPress={handleFinish} />
     </View>
   );
 }
@@ -113,13 +141,12 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
     marginVertical: 16,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
-    flex: 1,
-    textAlign: 'center',
   },
   label: {
     fontSize: 16,
@@ -134,15 +161,4 @@ const styles = StyleSheet.create({
     backgroundColor: '#FAFAFA',
     marginBottom: 16,
   },
-  text: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    marginTop: 12,
-  },
-  scrollContainer: {
-    maxHeight: '55%',
-    overflow: 'hidden',
-  }
 });

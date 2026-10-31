@@ -13,13 +13,18 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "GasApp uses your location to show nearby filling stations and route your delivery."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"],
+      "edgeToEdgeEnabled": true
     },
     "web": {
       "bundler": "metro",
@@ -33,6 +38,12 @@
         {
           "ios": {},
           "android": {}
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "GasApp uses your location to show nearby filling stations and route your delivery."
         }
       ]
     ],

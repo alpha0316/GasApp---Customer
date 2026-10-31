@@ -8,15 +8,19 @@ import Svg, { Path } from 'react-native-svg';
 import Slider from '@react-native-community/slider';
 
 export default function Amount() {
-  const [amount, setAmount] = useState(''); 
-  const [totalCost, setTotalCost] = useState(0); 
+  const [amount, setAmount] = useState('');
+  const [totalCost, setTotalCost] = useState(0);
   const [sliderValue, setSliderValue] = useState(0)
   const [selectedKg, setSelectedKg] = useState(2)
   const [pricePerKg, setPricePerKg] = useState(5)
 
   const navigation = useNavigation();
   const route = useRoute();
-  const { offerName, offerPrice, price } = route.params;
+  const { offerName, offerPrice, price } = route.params as {
+    offerName: string;
+    offerPrice: number;
+    price: string;
+  };
 
 
   {/*useEffect(() => {
@@ -32,7 +36,7 @@ export default function Amount() {
 
   useEffect(() => {
     // Convert offerPrice, price, and amount to numbers and calculate total cost
-    const numericOfferPrice = parseFloat(offerPrice) || 0;
+    const numericOfferPrice = Number(offerPrice) || 0;
     const numericPrice = parseFloat(price) || 0;
     const numericAmount = parseFloat(amount) || 0; // Default to 0 if amount is not a number
 
@@ -41,7 +45,7 @@ export default function Amount() {
     setTotalCost(calculatedTotalCost);
   }, [amount, offerPrice, price]);
 
-  const handleSliderChange = (value) => {
+  const handleSliderChange = (value: number) => {
     setSliderValue(value)
 
     const kg = 2 + Math.round(value * 22)
@@ -191,7 +195,7 @@ const isButtonDisabled = !amount
           <Text>GHC {totalCost}.00</Text>
         </View>
         <PrimaryButton title={'Continue'} 
-        onPress={() => navigation.navigate('Payment', { offerName, offerPrice, totalCost, price, totalCost, amount })}
+        onPress={() => navigation.navigate('FindingRider', { offerName, offerPrice, totalCost, price, amount })}
         disabled={isButtonDisabled}
         />
       </View>
@@ -262,6 +266,9 @@ const styles = StyleSheet.create({
   },
   priceText: {
     color: 'rgba(0, 0, 0, 0.60)',
+  },
+  price: {
+    fontWeight: '700',
   },
   selectedBackground: {
     backgroundColor: '#F6F6F6', // Replace with your desired color
