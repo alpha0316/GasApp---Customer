@@ -2,6 +2,7 @@
   "expo": {
     "name": "GasApp",
     "slug": "GasApp",
+    "owner": "alpha0316",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -51,6 +52,11 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "64a2a661-cecb-4c91-b2ba-f867ad1c988e"
+      }
     }
   }
 }
