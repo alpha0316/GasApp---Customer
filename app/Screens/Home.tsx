@@ -763,7 +763,7 @@ export default function Home() {
       {menuOpen && (
         <>
           <TouchableOpacity style={styles.menuBackdrop} activeOpacity={1} onPress={handleCloseMenu} />
-          <View style={[styles.menuDropdown, { top: insets.top + 60 }]}>
+          <View style={[styles.menuDropdown, { top: 70 }]}>
             <TouchableOpacity style={[styles.menuItem, styles.menuItemActive]} onPress={handleCloseMenu}>
               <House size={18} color="#007AFF" weight="fill" />
               <Text style={[styles.menuItemText, styles.menuItemTextActive]}>Home</Text>
