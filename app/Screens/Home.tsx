@@ -397,6 +397,15 @@ export default function Home() {
     setFullFillFlags((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // If the user removes every remaining cylinder while on the amount step,
+  // there's nothing left to confirm — bounce back to the home/select screen.
+  useEffect(() => {
+    if (step === 'amount' && amountUnits.length === 0) {
+      glide();
+      setStep('select');
+    }
+  }, [step, amountUnits.length]);
+
   const handleConfirmAmount = () => {
     navigation.navigate('FindingRider', {
       offerName: selectedStationDetails?.name ?? 'Gas Cylinder Order',
