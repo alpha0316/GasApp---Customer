@@ -28,7 +28,12 @@
         "backgroundColor": "#ffffff"
       },
       "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"],
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyAeZeUa0pwWr-TGe3NZa5r6y5w7vED4Sjc"
+        }
+      }
     },
     "web": {
       "bundler": "metro",
