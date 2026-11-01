@@ -1,44 +1,36 @@
 import React, { useState } from 'react';
-import { Image, StyleSheet, View, Text, ScrollView } from 'react-native';
+import { Image, StyleSheet, View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import PrimaryButton from '@/components/PrimaryButton';
 import BackButton from '@/components/BackButton';
 import SecondaryButton from '@/components/SecondaryButton';
 import { useNavigation, useRoute } from '@react-navigation/native';
 
+const CYLINDER_OPTIONS = [
+  {
+    id: 'small',
+    name: 'Small Size',
+    price: 3.0,
+    image: require('./../../assets/images/smallSize.png'),
+  },
+  {
+    id: 'medium',
+    name: 'Medium Size',
+    price: 6.0,
+    image: require('./../../assets/images/mediumSize.png'),
+  },
+];
+
 export default function SelectCylinder() {
-  const [selectedSmall, setSelectedSmall] = useState(false); 
-  const [selectedMedium, setSelectedMedium] = useState(false); 
-  const [price, setPrice] = useState('n/a');
-  const [totalCost, setTotalCost] = useState(0);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-  const handlePressSmall = () => {
-    setSelectedSmall(!selectedSmall);
-    setSelectedMedium(false);
-    if (!selectedSmall) {
-      setPrice('GHC 3.00');
-      calculateTotalCost('GHC 3.00'); 
-    } else {
-      setPrice('n/a');
-      setTotalCost(0); 
-    }
+  const toggleCylinder = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
   };
 
-  const handlePressMedium = () => {
-    setSelectedMedium(!selectedMedium);
-    setSelectedSmall(false); 
-    if (!selectedMedium) {
-      setPrice('GHC 6.00');
-      calculateTotalCost('GHC 6.00');
-    } else {
-      setPrice('n/a');
-      setTotalCost(0); 
-    }
-  };
-
-  const calculateTotalCost = (selectedPrice: string) => {
-    let cylinderCost = parseFloat(selectedPrice.split(' ')[1]);
-    let total = parseFloat(offerPrice) + cylinderCost;
-    setTotalCost(total);
+  const removeCylinder = (id: string) => {
+    setSelectedIds((prev) => prev.filter((item) => item !== id));
   };
 
   const navigation = useNavigation();
@@ -49,7 +41,14 @@ export default function SelectCylinder() {
     offerId?: string;
   };
 
-  const isButtonDisabled = !selectedMedium && !selectedSmall
+  const selectedCylinders = CYLINDER_OPTIONS.filter((option) => selectedIds.includes(option.id));
+  const cylinderCost = selectedCylinders.reduce((sum, option) => sum + option.price, 0);
+  const totalCost = (parseFloat(offerPrice) || 0) + cylinderCost;
+  const price = selectedCylinders.length
+    ? selectedCylinders.map((option) => `GHC ${option.price.toFixed(2)}`).join(', ')
+    : 'n/a';
+
+  const isButtonDisabled = selectedIds.length === 0;
 
   return (
     <View style={styles.main}>
@@ -58,30 +57,47 @@ export default function SelectCylinder() {
         <Text style={{ fontSize: 18, fontWeight: '700' }}>Select LPG Cylinder Size</Text>
       </View>
       <ScrollView style={styles.scrollContainer} bounces={false}>
-        <View style={styles.MainContainer}>
-          <View style={[styles.cylinderContainer, selectedSmall ? styles.selectedBackground : null]}>
-            <View style={styles.imgContainer}>
-              <Image source={require('./../../assets/images/smallSize.png')} style={styles.image} />
+        {CYLINDER_OPTIONS.map((option) => {
+          const isSelected = selectedIds.includes(option.id);
+          return (
+            <View style={styles.MainContainer} key={option.id}>
+              <View style={[styles.cylinderContainer, isSelected ? styles.selectedBackground : null]}>
+                <View style={styles.imgContainer}>
+                  <Image source={option.image} style={styles.image} />
+                </View>
+                <View style={styles.textContainer}>
+                  <Text>{option.name}</Text>
+                  <Text style={styles.priceText}>GHC {option.price.toFixed(2)}</Text>
+                </View>
+                <SecondaryButton
+                  title={isSelected ? 'Selected' : 'Select'}
+                  onPress={() => toggleCylinder(option.id)}
+                />
+              </View>
             </View>
-            <View style={styles.textContainer}>
-              <Text>Small Size</Text>
-              <Text style={styles.priceText}>GHC 3.00</Text>
-            </View>
-            <SecondaryButton title={'Select'} onPress={handlePressSmall} />
+          );
+        })}
+
+        {selectedCylinders.length > 0 && (
+          <View style={styles.selectedListContainer}>
+            <Text style={styles.selectedListTitle}>Selected Cylinders</Text>
+            {selectedCylinders.map((option) => (
+              <View style={styles.selectedRow} key={option.id}>
+                <Text>{option.name}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <Text style={styles.priceText}>GHC {option.price.toFixed(2)}</Text>
+                  <TouchableOpacity
+                    onPress={() => removeCylinder(option.id)}
+                    accessibilityLabel={`Remove ${option.name}`}
+                    style={styles.removeButton}
+                  >
+                    <Text style={styles.removeButtonText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
           </View>
-        </View>
-        <View style={styles.MainContainer}>
-          <View style={[styles.cylinderContainer, selectedMedium ? styles.selectedBackground : null]}>
-            <View style={styles.imgContainer}>
-              <Image source={require('./../../assets/images/mediumSize.png')} style={styles.image} />
-            </View>
-            <View style={styles.textContainer}>
-              <Text>Medium Size</Text>
-              <Text style={styles.priceText}>GHC 6.00</Text>
-            </View>
-            <SecondaryButton title={'Select'} onPress={handlePressMedium} />
-          </View>
-        </View>
+        )}
       </ScrollView>
       <View style={styles.footer}>
         <Text style={{ fontWeight: '700', fontSize: 18 }}>Cost Summary</Text>
@@ -104,7 +120,7 @@ export default function SelectCylinder() {
         </View>
         <PrimaryButton
           title={'Continue'}
-          onPress={() => navigation.navigate('SelectLocation', { offerName, offerPrice, totalCost, price })}
+          onPress={() => navigation.navigate('SelectLocation', { offerName, offerPrice, totalCost, price, cylinderCost })}
           disabled={isButtonDisabled}
         />
       </View>
@@ -188,5 +204,35 @@ const styles = StyleSheet.create({
     backgroundColor: '#F6F6F6', // Replace with your desired color
     borderWidth: 1,
     borderColor : 'rgba(0, 0, 0, 0.50)'
+  },
+  selectedListContainer: {
+    gap: 8,
+    marginBottom: 24,
+  },
+  selectedListTitle: {
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  selectedRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.10)',
+    borderRadius: 12,
+    padding: 12,
+  },
+  removeButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  removeButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: 'rgba(0, 0, 0, 0.60)',
   },
 });

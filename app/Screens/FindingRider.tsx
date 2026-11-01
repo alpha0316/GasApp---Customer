@@ -1,14 +1,16 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from 'react-native-reanimated';
 import { CircleNotch } from 'phosphor-react-native';
+import CancelOrderModal from '@/components/CancelOrderModal';
 
 const MATCH_DELAY_MS = 4500;
 
 export default function FindingRider() {
   const navigation = useNavigation();
   const route = useRoute();
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
 
   const spin = useSharedValue(0);
 
@@ -41,10 +43,19 @@ export default function FindingRider() {
           We're matching you with the nearest available rider. Pay the rider in cash on delivery.
         </Text>
 
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity onPress={() => setCancelModalVisible(true)}>
           <Text style={styles.cancel}>Cancel Order</Text>
         </TouchableOpacity>
       </View>
+
+      <CancelOrderModal
+        visible={cancelModalVisible}
+        onClose={() => setCancelModalVisible(false)}
+        onConfirm={() => {
+          setCancelModalVisible(false);
+          navigation.goBack();
+        }}
+      />
     </View>
   );
 }

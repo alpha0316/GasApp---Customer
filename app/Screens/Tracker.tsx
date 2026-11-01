@@ -23,6 +23,7 @@ import {
 } from 'phosphor-react-native';
 import { MAP_TILE_URL } from '@/lib/mapTiles';
 import GlassCard from '@/components/GlassCard';
+import CancelOrderModal from '@/components/CancelOrderModal';
 
 const PRIMARY = '#0088FF';
 const PRIMARY_TINT = 'rgba(0,136,255,0.10)';
@@ -650,8 +651,20 @@ export default function Tracker() {
 
   const handleGoHome = () => navigation.navigate('Home');
 
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+
   const handleCancel = () => {
-    Alert.alert('Order Cancelled', 'Your order has been cancelled.', [{ text: 'OK', onPress: handleGoHome }]);
+    setCancelModalVisible(true);
+  };
+
+  const handleConfirmCancel = (reason: string) => {
+    setCancelModalVisible(false);
+    setDemoMode('normal');
+    Alert.alert(
+      'Order Cancelled',
+      `Your order has been cancelled and any payment held will be refunded.\n\nReason: ${reason}`,
+      [{ text: 'OK', onPress: handleGoHome }]
+    );
   };
 
   return (
@@ -724,12 +737,7 @@ export default function Tracker() {
                 setDemoMode('normal');
                 Alert.alert('Order Updated', message);
               }}
-              onCancelOrder={() => {
-                setDemoMode('normal');
-                Alert.alert('Order Cancelled', 'Your order has been cancelled and any payment held will be refunded.', [
-                  { text: 'OK', onPress: handleGoHome },
-                ]);
-              }}
+              onCancelOrder={() => setCancelModalVisible(true)}
             />
           ) : demoMode === 'queued' ? (
             <QueuedCard canCancel onCancel={handleCancel} />
@@ -765,6 +773,12 @@ export default function Tracker() {
           )}
         </View>
       </GlassCard>
+
+      <CancelOrderModal
+        visible={cancelModalVisible}
+        onClose={() => setCancelModalVisible(false)}
+        onConfirm={handleConfirmCancel}
+      />
     </View>
   );
 }

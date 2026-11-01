@@ -16,10 +16,11 @@ export default function Amount() {
 
   const navigation = useNavigation();
   const route = useRoute();
-  const { offerName, offerPrice, price } = route.params as {
+  const { offerName, offerPrice, price, cylinderCost } = route.params as {
     offerName: string;
     offerPrice: number;
     price: string;
+    cylinderCost?: number;
   };
 
 
@@ -35,15 +36,15 @@ export default function Amount() {
   }, [amount, offerPrice, price]);*/}
 
   useEffect(() => {
-    // Convert offerPrice, price, and amount to numbers and calculate total cost
+    // Convert offerPrice, cylinderCost, and amount to numbers and calculate total cost
     const numericOfferPrice = Number(offerPrice) || 0;
-    const numericPrice = parseFloat(price) || 0;
+    const numericCylinderCost = cylinderCost !== undefined ? Number(cylinderCost) || 0 : parseFloat(price) || 0;
     const numericAmount = parseFloat(amount) || 0; // Default to 0 if amount is not a number
 
     // Calculate total cost
-    const calculatedTotalCost = numericOfferPrice + numericPrice + numericAmount;
+    const calculatedTotalCost = numericOfferPrice + numericCylinderCost + numericAmount;
     setTotalCost(calculatedTotalCost);
-  }, [amount, offerPrice, price]);
+  }, [amount, offerPrice, price, cylinderCost]);
 
   const handleSliderChange = (value: number) => {
     setSliderValue(value)
@@ -56,7 +57,10 @@ export default function Amount() {
   }
 
 
-const isButtonDisabled = !amount
+const MINIMUM_AMOUNT = 20;
+const numericAmount = parseFloat(amount) || 0;
+const isBelowMinimum = amount !== '' && numericAmount < MINIMUM_AMOUNT;
+const isButtonDisabled = !amount || isBelowMinimum
 
   return (
     <View style={styles.main}>
@@ -75,6 +79,9 @@ const isButtonDisabled = !amount
           onSubmitEditing={Keyboard.dismiss}
           returnKeyType="done"
         />
+        {isBelowMinimum && (
+          <Text style={styles.errorText}>Minimum amount is GHC {MINIMUM_AMOUNT}.00</Text>
+        )}
       </View>
     
       <View style={{
@@ -290,5 +297,10 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 12,
     backgroundColor: '#FAFAFA',
+  },
+  errorText: {
+    color: '#D32F2F',
+    fontSize: 13,
+    marginTop: 6,
   }
 });
