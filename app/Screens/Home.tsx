@@ -238,28 +238,36 @@ export default function Home() {
     setShowDatePicker(true);
   };
 
-  const handleDateChange = (_event: any, date?: Date) => {
-    setShowDatePicker(Platform.OS === 'ios');
-    if (date) setCustomDate(date);
-  };
-
-  const handleSaveSchedule = () => {
+  const completeSchedule = (mode: 'instantly' | 'tomorrow' | 'custom', date: Date | null) => {
     const label =
-      pickupMode === 'instantly'
-        ? 'Now'
-        : pickupMode === 'tomorrow'
-        ? 'Tomorrow'
-        : customDate
-        ? formatCustomDate(customDate)
-        : 'Pick Date';
+      mode === 'instantly' ? 'Now' : mode === 'tomorrow' ? 'Tomorrow' : date ? formatCustomDate(date) : 'Pick Date';
     glide();
     setPickupLabel(label);
     setScheduleView(false);
+    setShowDatePicker(false);
     if (forceScheduleAfterSave) {
       setForceScheduleAfterSave(false);
       setSelectedStation(stationsWithDistance[0]?.key ?? null);
       setStep('stations');
     }
+  };
+
+  const handleDateChange = (event: any, date?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+      if (event?.type !== 'set' || !date) return;
+    } else if (!date) {
+      return;
+    }
+    setCustomDate(date);
+    setPickupMode('custom');
+    // Picking a day is the final step of scheduling — continue right away
+    // instead of making the user tap Save afterward.
+    completeSchedule('custom', date);
+  };
+
+  const handleSaveSchedule = () => {
+    completeSchedule(pickupMode, customDate);
   };
 
   const cylinderCost = CYLINDERS.reduce((sum, c) => sum + c.price * quantities[c.key], 0);
@@ -502,6 +510,7 @@ export default function Home() {
                     </View>
                     <TouchableOpacity onPress={handleOpenSchedule} style={styles.clockButton}>
                       <SvgXml xml={SCHEDULE_CLOCK_ICON_XML} width={18} height={18} />
+                      {pickupLabel !== 'Now' && <Text style={styles.clockButtonText}>{pickupLabel}</Text>}
                     </TouchableOpacity>
                   </View>
 
@@ -926,12 +935,20 @@ const styles = StyleSheet.create({
     color: 'rgba(0,0,0,0.6)',
   },
   clockButton: {
-    width: 32,
+    minWidth: 32,
     height: 32,
     borderRadius: 16,
     backgroundColor: '#F0FBEA',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 10,
+    gap: 6,
+  },
+  clockButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#2F8A00',
   },
   locationRow: {
     flexDirection: 'row',
