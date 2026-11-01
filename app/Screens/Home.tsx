@@ -133,6 +133,7 @@ export default function Home() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [pickupLabel, setPickupLabel] = useState('Now');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [forceScheduleAfterSave, setForceScheduleAfterSave] = useState(false);
 
   useEffect(() => {
     if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -254,6 +255,11 @@ export default function Home() {
     glide();
     setPickupLabel(label);
     setScheduleView(false);
+    if (forceScheduleAfterSave) {
+      setForceScheduleAfterSave(false);
+      setSelectedStation(stationsWithDistance[0]?.key ?? null);
+      setStep('stations');
+    }
   };
 
   const cylinderCost = CYLINDERS.reduce((sum, c) => sum + c.price * quantities[c.key], 0);
@@ -263,6 +269,12 @@ export default function Home() {
   const isOrderDisabled = cylinderCost === 0;
   const currentHour = new Date().getHours();
   const isWithinBusinessHours = currentHour >= BUSINESS_OPEN_HOUR && currentHour < BUSINESS_CLOSE_HOUR;
+  const minimumScheduleDate = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  })();
 
   const stationsWithDistance = STATIONS.map((s) => {
     const coords = {
@@ -312,6 +324,8 @@ export default function Home() {
   const handlePlaceOrder = () => {
     if (isOrderDisabled) return;
     if (!isWithinBusinessHours) {
+      if (pickupMode === 'instantly') setPickupMode('tomorrow');
+      setForceScheduleAfterSave(true);
       handleOpenSchedule();
       return;
     }
@@ -514,15 +528,17 @@ export default function Home() {
                   <View style={styles.segmentedControl}>
                     {(['instantly', 'tomorrow', 'custom'] as const).map((mode) => {
                       const isSelected = pickupMode === mode;
+                      const isDisabled = mode === 'instantly' && !isWithinBusinessHours;
                       const label =
                         mode === 'instantly' ? 'Instantly' : mode === 'tomorrow' ? 'Tomorrow' : customDate ? formatCustomDate(customDate) : 'Pick Date';
                       return (
                         <TouchableOpacity
                           key={mode}
-                          style={[styles.segment, isSelected && styles.segmentSelected]}
+                          style={[styles.segment, isSelected && styles.segmentSelected, isDisabled && styles.segmentDisabled]}
+                          disabled={isDisabled}
                           onPress={() => (mode === 'custom' ? handleSelectCustomDate() : setPickupMode(mode))}
                         >
-                          <Text style={[styles.segmentText, isSelected && styles.segmentTextSelected]}>{label}</Text>
+                          <Text style={[styles.segmentText, isSelected && styles.segmentTextSelected, isDisabled && styles.segmentTextDisabled]}>{label}</Text>
                         </TouchableOpacity>
                       );
                     })}
@@ -531,10 +547,10 @@ export default function Home() {
                   {showDatePicker && (
                     <DateTimePicker
                       style={styles.datePicker}
-                      value={customDate ?? new Date()}
+                      value={customDate ?? minimumScheduleDate}
                       mode="date"
                       display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                      minimumDate={new Date()}
+                      minimumDate={minimumScheduleDate}
                       accentColor="#007AFF"
                       onChange={handleDateChange}
                     />
@@ -1246,6 +1262,12 @@ const styles = StyleSheet.create({
   segmentTextSelected: {
     fontWeight: '600',
     color: '#000',
+  },
+  segmentDisabled: {
+    opacity: 0.4,
+  },
+  segmentTextDisabled: {
+    color: 'rgba(0,0,0,0.3)',
   },
   locationSearchOverlay: {
     position: 'absolute',
