@@ -21,13 +21,12 @@ import MapView, { Marker, Polyline, UrlTile } from 'react-native-maps';
 import * as Location from 'expo-location';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SvgXml } from 'react-native-svg';
-import { clearSession } from '@/lib/mockUserStore';
 import { MAP_TILE_URL } from '@/lib/mapTiles';
 import { LOCATION_MARKER_XML } from '@/components/icons/BrandIcons';
 import StationPinIcon from '@/components/StationPinIcon';
 import GlassCard from '@/components/GlassCard';
+import AppMenuButton from '@/components/AppMenu';
 import {
-  List,
   Crosshair,
   MapPin,
   CaretRight,
@@ -40,12 +39,6 @@ import {
   X,
   MagnifyingGlass,
   NavigationArrow,
-  House,
-  ClockCounterClockwise,
-  Bell,
-  Phone,
-  Gear,
-  SignOut,
 } from 'phosphor-react-native';
 import { red } from 'react-native-reanimated/lib/typescript/Colors';
 import { blue100 } from 'react-native-paper/lib/typescript/styles/themes/v2/colors';
@@ -132,7 +125,6 @@ export default function Home() {
   const [customDate, setCustomDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [pickupLabel, setPickupLabel] = useState('Now');
-  const [menuOpen, setMenuOpen] = useState(false);
   const [forceScheduleAfterSave, setForceScheduleAfterSave] = useState(false);
 
   useEffect(() => {
@@ -354,39 +346,6 @@ export default function Home() {
     setStep('select');
   };
 
-  const handleToggleMenu = () => {
-    glide();
-    setMenuOpen((prev) => !prev);
-  };
-
-  const handleCloseMenu = () => {
-    glide();
-    setMenuOpen(false);
-  };
-
-  const handleSignOut = async () => {
-    await clearSession();
-    navigation.reset({ index: 0, routes: [{ name: 'SplashScreen' }] });
-  };
-
-  const handleGoToNotifications = () => {
-    glide();
-    setMenuOpen(false);
-    navigation.navigate('Notification');
-  };
-
-  const handleGoToOrders = () => {
-    glide();
-    setMenuOpen(false);
-    navigation.navigate('Orders');
-  };
-
-  const handleGoToContactUs = () => {
-    glide();
-    setMenuOpen(false);
-    navigation.navigate('ContactUs');
-  };
-
   const selectedStationDetails = stationsWithDistance.find((s) => s.key === selectedStation);
 
   const amountUnits = CYLINDERS.flatMap((c) =>
@@ -507,9 +466,7 @@ export default function Home() {
         </MapView>
 
         <View style={[styles.mapTopBar, { top: 20 }]}>
-          <TouchableOpacity style={styles.mapIconButton} onPress={handleToggleMenu}>
-            <List size={22} color="#000" />
-          </TouchableOpacity>
+          <AppMenuButton active="home" />
           <TouchableOpacity style={styles.mapIconButton} onPress={handleRefocus}>
             <Crosshair size={20} color="#000" />
           </TouchableOpacity>
@@ -812,46 +769,6 @@ export default function Home() {
         </View>
       )}
 
-      {menuOpen && (
-        <>
-          <TouchableOpacity style={styles.menuBackdrop} activeOpacity={1} onPress={handleCloseMenu} />
-          <View style={[styles.menuDropdown, { top: 70 }]}>
-            <TouchableOpacity style={[styles.menuItem, styles.menuItemActive]} onPress={handleCloseMenu}>
-              <House size={18} color="#007AFF" weight="fill" />
-              <Text style={[styles.menuItemText, styles.menuItemTextActive]}>Home</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={handleGoToOrders}>
-              <ClockCounterClockwise size={18} color="rgba(0,0,0,0.6)" />
-              <Text style={styles.menuItemText}>Orders</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={handleGoToNotifications}>
-              <Bell size={18} color="rgba(0,0,0,0.6)" />
-              <Text style={styles.menuItemText}>Notifications</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={handleGoToContactUs}>
-              <Phone size={18} color="rgba(0,0,0,0.6)" />
-              <Text style={styles.menuItemText}>Contact Us</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={handleCloseMenu}>
-              <Gear size={18} color="rgba(0,0,0,0.6)" />
-              <Text style={styles.menuItemText}>Settings</Text>
-            </TouchableOpacity>
-
-            <View style={styles.menuDivider} />
-
-            <TouchableOpacity style={styles.menuItem} onPress={handleCloseMenu}>
-              <View style={styles.menuAvatar}>
-                <Text style={styles.menuAvatarText}>GU</Text>
-              </View>
-              <Text style={styles.menuItemText}>My Account</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={handleSignOut}>
-              <SignOut size={18} color="rgba(0,0,0,0.6)" />
-              <Text style={styles.menuItemText}>Sign Out</Text>
-            </TouchableOpacity>
-          </View>
-        </>
-      )}
     </View>
   );
 }
@@ -1373,66 +1290,5 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: '#000',
-  },
-  menuBackdrop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(255,255,255,0.6)',
-  },
-  menuDropdown: {
-    position: 'absolute',
-    top: 68,
-    left: 16,
-    width: 230,
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    paddingVertical: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 10,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    marginHorizontal: 8,
-    borderRadius: 12,
-  },
-  menuItemActive: {
-    backgroundColor: 'rgba(0, 122, 255, 0.08)',
-  },
-  menuItemText: {
-    fontSize: 15,
-    color: 'rgba(0,0,0,0.75)',
-  },
-  menuItemTextActive: {
-    color: '#007AFF',
-    fontWeight: '600',
-  },
-  menuDivider: {
-    height: 1,
-    backgroundColor: 'rgba(0,0,0,0.08)',
-    marginVertical: 6,
-    marginHorizontal: 14,
-  },
-  menuAvatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#007AFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  menuAvatarText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '700',
   },
 });

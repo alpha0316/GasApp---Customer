@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Linking, Modal } from 'react-native';
 import { CheckCircle, EnvelopeSimple, MapPin, Phone } from 'phosphor-react-native';
-import BackButton from '@/components/BackButton';
+import AppMenuButton from '@/components/AppMenu';
 import PrimaryButton from '@/components/PrimaryButton';
 
 const PRIMARY = '#007AFF';
@@ -96,7 +96,7 @@ export default function ContactUs() {
   return (
     <View style={styles.main}>
       <View style={styles.header}>
-        <BackButton />
+        <AppMenuButton active="contact" />
         <Text style={styles.headerTitle}>Contact Us</Text>
       </View>
 

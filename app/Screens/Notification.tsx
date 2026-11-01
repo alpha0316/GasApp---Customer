@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Bell, CheckCircle, GasPump, Package, Tag } from 'phosphor-react-native';
-import BackButton from '@/components/BackButton';
+import AppMenuButton from '@/components/AppMenu';
 
 const PRIMARY = '#007AFF';
 const PRIMARY_TINT = 'rgba(0,122,255,0.10)';
@@ -142,7 +142,7 @@ export default function Notification() {
   return (
     <View style={styles.main}>
       <View style={styles.header}>
-        <BackButton />
+        <AppMenuButton active="notifications" />
         <Text style={styles.headerTitle}>Notifications</Text>
       </View>
 

@@ -12,7 +12,7 @@ import {
   ShareNetwork,
   X,
 } from 'phosphor-react-native';
-import BackButton from '@/components/BackButton';
+import AppMenuButton from '@/components/AppMenu';
 
 const PRIMARY = '#007AFF';
 const PRIMARY_TINT = 'rgba(0,122,255,0.10)';
@@ -453,7 +453,7 @@ export default function Orders() {
   return (
     <View style={styles.main}>
       <View style={styles.header}>
-        <BackButton />
+        <AppMenuButton active="orders" />
         <Text style={styles.headerTitle}>Orders</Text>
         <TouchableOpacity
           style={[styles.headerIconButton, searchOpen && styles.headerIconButtonActive]}
