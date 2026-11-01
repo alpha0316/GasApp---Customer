@@ -238,15 +238,15 @@ export default function Home() {
     setShowDatePicker(true);
   };
 
-  const completeSchedule = (mode: 'instantly' | 'tomorrow' | 'custom', date: Date | null) => {
+  const completeSchedule = (mode: 'instantly' | 'tomorrow' | 'custom', date: Date | null, continueOrder: boolean) => {
     const label =
       mode === 'instantly' ? 'Now' : mode === 'tomorrow' ? 'Tomorrow' : date ? formatCustomDate(date) : 'Pick Date';
     glide();
     setPickupLabel(label);
     setScheduleView(false);
     setShowDatePicker(false);
-    if (forceScheduleAfterSave) {
-      setForceScheduleAfterSave(false);
+    setForceScheduleAfterSave(false);
+    if (continueOrder) {
       setSelectedStation(stationsWithDistance[0]?.key ?? null);
       setStep('stations');
     }
@@ -263,11 +263,11 @@ export default function Home() {
     setPickupMode('custom');
     // Picking a day is the final step of scheduling — continue right away
     // instead of making the user tap Save afterward.
-    completeSchedule('custom', date);
+    completeSchedule('custom', date, forceScheduleAfterSave);
   };
 
   const handleSaveSchedule = () => {
-    completeSchedule(pickupMode, customDate);
+    completeSchedule(pickupMode, customDate, forceScheduleAfterSave);
   };
 
   const cylinderCost = CYLINDERS.reduce((sum, c) => sum + c.price * quantities[c.key], 0);
@@ -331,6 +331,13 @@ export default function Home() {
 
   const handlePlaceOrder = () => {
     if (isOrderDisabled) return;
+    if (scheduleView) {
+      // The schedule picker is already open (e.g. the user just tapped
+      // "Tomorrow" or picked a date) — treat tapping the main button as
+      // "Save and continue" instead of requiring a separate Save tap.
+      completeSchedule(pickupMode, customDate, true);
+      return;
+    }
     if (!isWithinBusinessHours) {
       if (pickupMode === 'instantly') setPickupMode('tomorrow');
       setForceScheduleAfterSave(true);
@@ -372,6 +379,12 @@ export default function Home() {
     glide();
     setMenuOpen(false);
     navigation.navigate('Orders');
+  };
+
+  const handleGoToContactUs = () => {
+    glide();
+    setMenuOpen(false);
+    navigation.navigate('ContactUs');
   };
 
   const selectedStationDetails = stationsWithDistance.find((s) => s.key === selectedStation);
@@ -815,7 +828,7 @@ export default function Home() {
               <Bell size={18} color="rgba(0,0,0,0.6)" />
               <Text style={styles.menuItemText}>Notifications</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={handleCloseMenu}>
+            <TouchableOpacity style={styles.menuItem} onPress={handleGoToContactUs}>
               <Phone size={18} color="rgba(0,0,0,0.6)" />
               <Text style={styles.menuItemText}>Contact Us</Text>
             </TouchableOpacity>

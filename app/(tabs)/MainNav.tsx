@@ -5,6 +5,7 @@ import GeneralDetails from '../Screens/GeneralDetails';
 import SelectHostel from '../Screens/SelectHostel';
 import Home from '../Screens/Home';
 import Orders from '../Screens/Orders';
+import ContactUs from '../Screens/ContactUs';
 import SelectCylinder from '../Screens/SelectCylinder';
 import SelectLocation from '../Screens/SelectLocation';
 import Amount from '../Screens/Amount';
@@ -35,6 +36,7 @@ export default function MainNav() {
       <Stack.Screen name="Home" component={Home} options={{ headerShown: false }} />
       <Stack.Screen name="Orders" component={Orders} options={{ headerShown: false }} />
       <Stack.Screen name="Notification" component={Notification} options={{ headerShown: false }} />
+      <Stack.Screen name="ContactUs" component={ContactUs} options={{ headerShown: false }} />
       <Stack.Screen name="SelectCylinder" component={SelectCylinder} options={{ headerShown: false }} />
       <Stack.Screen name="SelectLocation" component={SelectLocation} options={{ headerShown: false }} />
       <Stack.Screen name="Amount" component={Amount} options={{ headerShown: false }} />
