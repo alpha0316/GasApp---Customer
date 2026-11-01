@@ -14,6 +14,7 @@ export type RootStackParamList = {
   SelectHostel: { schoolId?: string } | undefined;
   SelectSchool: undefined;
   Home: undefined;
+  Orders: undefined;
   Notification: undefined;
   SelectCylinder: any;
   SelectLocation: any;

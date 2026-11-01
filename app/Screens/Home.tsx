@@ -368,6 +368,12 @@ export default function Home() {
     navigation.navigate('Notification');
   };
 
+  const handleGoToOrders = () => {
+    glide();
+    setMenuOpen(false);
+    navigation.navigate('Orders');
+  };
+
   const selectedStationDetails = stationsWithDistance.find((s) => s.key === selectedStation);
 
   const amountUnits = CYLINDERS.flatMap((c) =>
@@ -801,7 +807,7 @@ export default function Home() {
               <House size={18} color="#007AFF" weight="fill" />
               <Text style={[styles.menuItemText, styles.menuItemTextActive]}>Home</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={handleCloseMenu}>
+            <TouchableOpacity style={styles.menuItem} onPress={handleGoToOrders}>
               <ClockCounterClockwise size={18} color="rgba(0,0,0,0.6)" />
               <Text style={styles.menuItemText}>Orders</Text>
             </TouchableOpacity>
