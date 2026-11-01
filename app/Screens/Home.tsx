@@ -70,6 +70,8 @@ const SCHEDULE_CLOCK_ICON_XML = `
 const MIN_FILL_AMOUNT = 20;
 const FILL_SERVICE_FEE = 5;
 const AMOUNT_INPUT_ACCESSORY_ID = 'amountInputAccessory';
+const BUSINESS_OPEN_HOUR = 8;
+const BUSINESS_CLOSE_HOUR = 17; // 5 PM
 
 const CYLINDERS = [
   { key: 'small', title: 'Small Size', price: 5, image: require('./../../assets/images/smallSize.png') },
@@ -259,6 +261,8 @@ export default function Home() {
     .map((c) => `${c.title} x${quantities[c.key]}`)
     .join(', ');
   const isOrderDisabled = cylinderCost === 0;
+  const currentHour = new Date().getHours();
+  const isWithinBusinessHours = currentHour >= BUSINESS_OPEN_HOUR && currentHour < BUSINESS_CLOSE_HOUR;
 
   const stationsWithDistance = STATIONS.map((s) => {
     const coords = {
@@ -307,6 +311,10 @@ export default function Home() {
 
   const handlePlaceOrder = () => {
     if (isOrderDisabled) return;
+    if (!isWithinBusinessHours) {
+      handleOpenSchedule();
+      return;
+    }
     glide();
     setSelectedStation(stationsWithDistance[0]?.key ?? null);
     setStep('stations');
@@ -563,7 +571,7 @@ export default function Home() {
                 disabled={isOrderDisabled}
                 onPress={handlePlaceOrder}
               >
-                <Text style={styles.placeOrderText}>Place Order</Text>
+                <Text style={styles.placeOrderText}>{isWithinBusinessHours ? 'Place Order' : 'Schedule Order'}</Text>
               </TouchableOpacity>
           </>
         ) : step === 'stations' ? (
