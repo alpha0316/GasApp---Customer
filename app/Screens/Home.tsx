@@ -362,7 +362,7 @@ export default function Home() {
     amountUnits.some((_, index) => !fullFillFlags[index] && (fillAmounts[index] ?? 0) < MIN_FILL_AMOUNT);
 
   const handleConfirmStation = () => {
-    setFillAmounts(amountUnits.map((u) => u.basePrice));
+    setFillAmounts(amountUnits.map(() => MIN_FILL_AMOUNT));
     setFullFillFlags(amountUnits.map(() => false));
     glide();
     setStep('amount');
@@ -380,13 +380,8 @@ export default function Home() {
   const handleFillAmountChange = (index: number, raw: string) => {
     const digits = raw.replace(/[^0-9]/g, '');
     const value = digits ? parseInt(digits, 10) : 0;
-    setFillAmounts((prev) => prev.map((a, i) => (i === index ? value : a)));
-  };
-
-  const handleFillAmountBlur = (index: number) => {
-    setFillAmounts((prev) =>
-      prev.map((a, i) => (i === index && a > 0 && a < MIN_FILL_AMOUNT ? MIN_FILL_AMOUNT : a))
-    );
+    const clamped = Math.max(value, MIN_FILL_AMOUNT);
+    setFillAmounts((prev) => prev.map((a, i) => (i === index ? clamped : a)));
   };
 
   const handleRemoveUnit = (index: number) => {
@@ -664,7 +659,6 @@ export default function Home() {
                       editable={!fullFillFlags[index]}
                       value={fullFillFlags[index] ? 'Full' : `GH ${fillAmounts[index] ?? 0}`}
                       onChangeText={(text) => handleFillAmountChange(index, text)}
-                      onBlur={() => handleFillAmountBlur(index)}
                       keyboardType="numeric"
                       returnKeyType="done"
                       onSubmitEditing={() => Keyboard.dismiss()}
