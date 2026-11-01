@@ -76,16 +76,18 @@ export default function CancelOrderModal({ visible, onClose, onConfirm }: Cancel
             />
           )}
 
+          <TouchableOpacity style={styles.confirmButton} onPress={handleClose}>
+            <Text style={styles.confirmButtonText}>Keep Order</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
-            style={[styles.confirmButton, !canConfirm && styles.confirmButtonDisabled]}
+            style={styles.keepButton}
             disabled={!canConfirm}
             onPress={handleConfirm}
           >
-            <Text style={styles.confirmButtonText}>Confirm Cancellation</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.keepButton} onPress={handleClose}>
-            <Text style={styles.keepButtonText}>Keep Order</Text>
+            <Text style={[styles.keepButtonText, !canConfirm && styles.keepButtonTextDisabled]}>
+              Confirm Cancellation
+            </Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -151,13 +153,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FAFAFA',
   },
   confirmButton: {
-    backgroundColor: '#D92D20',
+    backgroundColor: '#007AFF',
     borderRadius: 16,
     paddingVertical: 14,
     alignItems: 'center',
-  },
-  confirmButtonDisabled: {
-    opacity: 0.4,
   },
   confirmButtonText: {
     color: '#fff',
@@ -171,6 +170,9 @@ const styles = StyleSheet.create({
   keepButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: 'rgba(0,0,0,0.6)',
+    color: '#D92D20',
+  },
+  keepButtonTextDisabled: {
+    opacity: 0.4,
   },
 });
