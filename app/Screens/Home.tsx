@@ -383,6 +383,12 @@ export default function Home() {
     setFillAmounts((prev) => prev.map((a, i) => (i === index ? value : a)));
   };
 
+  const handleFillAmountBlur = (index: number) => {
+    setFillAmounts((prev) =>
+      prev.map((a, i) => (i === index && a > 0 && a < MIN_FILL_AMOUNT ? MIN_FILL_AMOUNT : a))
+    );
+  };
+
   const handleRemoveUnit = (index: number) => {
     const unit = amountUnits[index];
     if (!unit) return;
@@ -625,46 +631,39 @@ export default function Home() {
               </View>
 
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
-                {amountUnits.map((u, index) => {
-                  const belowMinimum = !fullFillFlags[index] && (fillAmounts[index] ?? 0) < MIN_FILL_AMOUNT;
-                  return (
-                    <View key={`${u.key}-${index}`} style={styles.amountUnitWrapper}>
-                      <View style={styles.amountUnitRow}>
-                        <Image source={u.image} style={styles.amountUnitImage} resizeMode="contain" />
-                        <View style={{ flex: 1 }}>
-                          {u.countForKey > 1 && <Text style={styles.amountUnitOption}>Option {u.unitNumber}</Text>}
-                          <Text style={styles.amountUnitTitle}>{u.title}</Text>
-                          <TouchableOpacity style={styles.fullFillRow} onPress={() => handleToggleFullFill(index)}>
-                            <View style={[styles.checkbox, fullFillFlags[index] && styles.checkboxChecked]}>
-                              {fullFillFlags[index] && <Check size={10} color="#fff" weight="bold" />}
-                            </View>
-                            <Text style={styles.fullFillText}>Full fill</Text>
-                          </TouchableOpacity>
+                {amountUnits.map((u, index) => (
+                  <View key={`${u.key}-${index}`} style={styles.amountUnitRow}>
+                    <TouchableOpacity
+                      style={styles.removeUnitButton}
+                      onPress={() => handleRemoveUnit(index)}
+                      accessibilityLabel={`Remove ${u.title}`}
+                    >
+                      <X size={14} color="rgba(0,0,0,0.5)" weight="bold" />
+                    </TouchableOpacity>
+                    <Image source={u.image} style={styles.amountUnitImage} resizeMode="contain" />
+                    <View style={{ flex: 1 }}>
+                      {u.countForKey > 1 && <Text style={styles.amountUnitOption}>Option {u.unitNumber}</Text>}
+                      <Text style={styles.amountUnitTitle}>{u.title}</Text>
+                      <TouchableOpacity style={styles.fullFillRow} onPress={() => handleToggleFullFill(index)}>
+                        <View style={[styles.checkbox, fullFillFlags[index] && styles.checkboxChecked]}>
+                          {fullFillFlags[index] && <Check size={10} color="#fff" weight="bold" />}
                         </View>
-                        <TextInput
-                          editable={!fullFillFlags[index]}
-                          value={fullFillFlags[index] ? 'Full' : `GH ${fillAmounts[index] ?? 0}`}
-                          onChangeText={(text) => handleFillAmountChange(index, text)}
-                          keyboardType="numeric"
-                          returnKeyType="done"
-                          onSubmitEditing={() => Keyboard.dismiss()}
-                          inputAccessoryViewID={Platform.OS === 'ios' ? AMOUNT_INPUT_ACCESSORY_ID : undefined}
-                          style={[styles.amountInput, fullFillFlags[index] && styles.amountInputDisabled, belowMinimum && styles.amountInputError]}
-                        />
-                        <TouchableOpacity
-                          style={styles.removeUnitButton}
-                          onPress={() => handleRemoveUnit(index)}
-                          accessibilityLabel={`Remove ${u.title}`}
-                        >
-                          <X size={14} color="rgba(0,0,0,0.5)" weight="bold" />
-                        </TouchableOpacity>
-                      </View>
-                      {belowMinimum && (
-                        <Text style={styles.amountErrorText}>Minimum fill amount is GH {MIN_FILL_AMOUNT}</Text>
-                      )}
+                        <Text style={styles.fullFillText}>Full fill</Text>
+                      </TouchableOpacity>
                     </View>
-                  );
-                })}
+                    <TextInput
+                      editable={!fullFillFlags[index]}
+                      value={fullFillFlags[index] ? 'Full' : `GH ${fillAmounts[index] ?? 0}`}
+                      onChangeText={(text) => handleFillAmountChange(index, text)}
+                      onBlur={() => handleFillAmountBlur(index)}
+                      keyboardType="numeric"
+                      returnKeyType="done"
+                      onSubmitEditing={() => Keyboard.dismiss()}
+                      inputAccessoryViewID={Platform.OS === 'ios' ? AMOUNT_INPUT_ACCESSORY_ID : undefined}
+                      style={[styles.amountInput, fullFillFlags[index] && styles.amountInputDisabled]}
+                    />
+                  </View>
+                ))}
 
                 <Text style={styles.minFillNote}>Min fill amount: GH {MIN_FILL_AMOUNT}</Text>
 
@@ -1023,9 +1022,6 @@ const styles = StyleSheet.create({
     color: 'rgba(0,0,0,0.5)',
     marginTop: 2,
   },
-  amountUnitWrapper: {
-    gap: 4,
-  },
   amountUnitRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1038,14 +1034,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.06)',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  amountInputError: {
-    borderColor: '#D92D20',
-  },
-  amountErrorText: {
-    fontSize: 11,
-    color: '#D92D20',
-    marginLeft: 44,
   },
   amountUnitImage: {
     width: 32,
