@@ -67,6 +67,18 @@ const AMOUNT_INPUT_ACCESSORY_ID = 'amountInputAccessory';
 const BUSINESS_OPEN_HOUR = 8;
 const BUSINESS_CLOSE_HOUR = 17; // 5 PM
 
+// Pickup slots offered when scheduling for tomorrow, every 2 hours across
+// the operating window.
+const NEXT_DAY_SLOTS: number[] = [];
+for (let hour = BUSINESS_OPEN_HOUR; hour <= BUSINESS_CLOSE_HOUR; hour += 2) NEXT_DAY_SLOTS.push(hour);
+
+const formatTimeOfDay = (hour: number, minute: number) => {
+  const period = hour < 12 ? 'AM' : 'PM';
+  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+  return `${displayHour}:${String(minute).padStart(2, '0')} ${period}`;
+};
+const formatHour = (hour: number) => formatTimeOfDay(hour, 0);
+
 const CYLINDERS = [
   { key: 'small', title: 'Small Size', price: 5, image: require('./../../assets/images/smallSize.png') },
   { key: 'medium', title: 'Medium Size', price: 10, image: require('./../../assets/images/mediumSize.png') },
@@ -132,7 +144,16 @@ export default function Home() {
   const [customDate, setCustomDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [pickupLabel, setPickupLabel] = useState('Now');
-  const [forceScheduleAfterSave, setForceScheduleAfterSave] = useState(false);
+  // Time-of-day paired with pickupMode's date — null means "no specific
+  // time chosen yet" (e.g. mode is still 'instantly').
+  const [scheduledHour, setScheduledHour] = useState<number | null>(null);
+  const [scheduledMinute, setScheduledMinute] = useState(0);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  // Dedicated "stations are closed" scheduler (next-day slot grid + a
+  // precise-time option), shown instead of the general Instantly/Tomorrow/
+  // Custom picker when the main button is tapped outside business hours.
+  const [closedScheduleOpen, setClosedScheduleOpen] = useState(false);
+  const [showClosedTimePicker, setShowClosedTimePicker] = useState(false);
   const [locationQuery, setLocationQuery] = useState('');
 
   useEffect(() => {
@@ -239,14 +260,28 @@ export default function Home() {
     setShowDatePicker(true);
   };
 
-  const completeSchedule = (mode: 'instantly' | 'tomorrow' | 'custom', date: Date | null, continueOrder: boolean) => {
-    const label =
+  const handleSelectTomorrow = () => {
+    setPickupMode('tomorrow');
+    // Tomorrow alone isn't a full schedule — immediately follow up with a
+    // time picker so a general schedule always captures both.
+    setShowTimePicker(true);
+  };
+
+  const completeSchedule = (
+    mode: 'instantly' | 'tomorrow' | 'custom',
+    date: Date | null,
+    hour: number | null,
+    minute: number,
+    continueOrder: boolean
+  ) => {
+    const dayLabel =
       mode === 'instantly' ? 'Now' : mode === 'tomorrow' ? 'Tomorrow' : date ? formatCustomDate(date) : 'Pick Date';
+    const label = mode !== 'instantly' && hour !== null ? `${dayLabel}, ${formatTimeOfDay(hour, minute)}` : dayLabel;
     glide();
     setPickupLabel(label);
     setScheduleView(false);
     setShowDatePicker(false);
-    setForceScheduleAfterSave(false);
+    setShowTimePicker(false);
     if (continueOrder) {
       setSelectedStation(stationsWithDistance[0]?.key ?? null);
       setStep('stations');
@@ -262,13 +297,54 @@ export default function Home() {
     }
     setCustomDate(date);
     setPickupMode('custom');
-    // Picking a day is the final step of scheduling — continue right away
-    // instead of making the user tap Save afterward.
-    completeSchedule('custom', date, forceScheduleAfterSave);
+    setShowDatePicker(false);
+    // A date alone isn't a full schedule — immediately follow up with a
+    // time picker so a custom schedule always captures both.
+    setShowTimePicker(true);
+  };
+
+  const handleTimeChange = (event: any, date?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowTimePicker(false);
+      if (event?.type !== 'set' || !date) return;
+    } else if (!date) {
+      return;
+    }
+    const hour = date.getHours();
+    const minute = date.getMinutes();
+    setScheduledHour(hour);
+    setScheduledMinute(minute);
+    completeSchedule(pickupMode, customDate, hour, minute, false);
   };
 
   const handleSaveSchedule = () => {
-    completeSchedule(pickupMode, customDate, forceScheduleAfterSave);
+    completeSchedule(pickupMode, customDate, scheduledHour, scheduledMinute, false);
+  };
+
+  const handleConfirmNextDaySchedule = (hour: number, minute: number = 0) => {
+    setScheduledHour(hour);
+    setScheduledMinute(minute);
+    setPickupMode('tomorrow');
+    setPickupLabel(`Tomorrow, ${formatTimeOfDay(hour, minute)}`);
+    setClosedScheduleOpen(false);
+    setShowClosedTimePicker(false);
+    glide();
+    setSelectedStation(stationsWithDistance[0]?.key ?? null);
+    setStep('stations');
+  };
+
+  const handleClosedTimeChange = (event: any, date?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowClosedTimePicker(false);
+      if (event?.type !== 'set' || !date) return;
+    } else if (!date) {
+      return;
+    }
+    let hour = date.getHours();
+    let minute = date.getMinutes();
+    hour = Math.min(Math.max(hour, BUSINESS_OPEN_HOUR), BUSINESS_CLOSE_HOUR);
+    if (hour === BUSINESS_CLOSE_HOUR) minute = 0;
+    handleConfirmNextDaySchedule(hour, minute);
   };
 
   const cylinderCost = CYLINDERS.reduce((sum, c) => sum + c.price * quantities[c.key], 0);
@@ -348,16 +424,16 @@ export default function Home() {
   const handlePlaceOrder = () => {
     if (isOrderDisabled) return;
     if (scheduleView) {
-      // The schedule picker is already open (e.g. the user just tapped
-      // "Tomorrow" or picked a date) — treat tapping the main button as
-      // "Save and continue" instead of requiring a separate Save tap.
-      completeSchedule(pickupMode, customDate, true);
+      // The general schedule picker is already open (e.g. the user just
+      // tapped "Tomorrow" or picked a date/time) — treat tapping the main
+      // button as "Save and continue" instead of requiring a separate tap.
+      completeSchedule(pickupMode, customDate, scheduledHour, scheduledMinute, true);
       return;
     }
-    if (!isWithinBusinessHours) {
-      if (pickupMode === 'instantly') setPickupMode('tomorrow');
-      setForceScheduleAfterSave(true);
-      handleOpenSchedule();
+    if (!isWithinBusinessHours && scheduledHour === null) {
+      // Closed right now with no schedule chosen yet — the only way to
+      // order is to book a pickup for tomorrow.
+      setClosedScheduleOpen(true);
       return;
     }
     glide();
@@ -502,7 +578,54 @@ export default function Home() {
       </View>
 
       <View style={[styles.floatingArea, { bottom: Math.max(insets.bottom, 8) }]} pointerEvents="box-none">
-        {step === 'select' ? (
+        {step === 'select' && closedScheduleOpen ? (
+          <GlassCard style={[styles.card, styles.stationCard]}>
+            <View style={styles.stationHeaderRow}>
+              <TouchableOpacity style={[styles.backButton, styles.backButtonAbsolute]} onPress={() => setClosedScheduleOpen(false)}>
+                <ArrowLeft size={18} color="#000" />
+              </TouchableOpacity>
+              <Text style={styles.stationHeaderTitle}>Schedule Your Order</Text>
+            </View>
+            <Text style={styles.closedScheduleSubtitle}>
+              Filling stations are open {formatHour(BUSINESS_OPEN_HOUR)}–{formatHour(BUSINESS_CLOSE_HOUR)} and
+              currently closed. Pick a pickup time for tomorrow.
+            </Text>
+
+            <View style={styles.slotGrid}>
+              {NEXT_DAY_SLOTS.map((hour) => (
+                <TouchableOpacity key={hour} style={styles.slotButton} onPress={() => handleConfirmNextDaySchedule(hour)}>
+                  <Text style={styles.slotButtonText}>{formatHour(hour)}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={styles.orDividerRow}>
+              <View style={styles.orDividerLine} />
+              <Text style={styles.orDividerText}>or</Text>
+              <View style={styles.orDividerLine} />
+            </View>
+
+            <TouchableOpacity style={styles.choosePreciseTimeRow} onPress={() => setShowClosedTimePicker(true)}>
+              <SvgXml xml={SCHEDULE_CLOCK_ICON_XML} width={18} height={18} />
+              <Text style={styles.choosePreciseTimeText}>Choose your preferred time</Text>
+            </TouchableOpacity>
+
+            {showClosedTimePicker && (
+              <DateTimePicker
+                style={styles.datePicker}
+                value={(() => {
+                  const d = new Date();
+                  d.setHours(BUSINESS_OPEN_HOUR, 0, 0, 0);
+                  return d;
+                })()}
+                mode="time"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                accentColor="#007AFF"
+                onChange={handleClosedTimeChange}
+              />
+            )}
+          </GlassCard>
+        ) : step === 'select' ? (
           <>
             <GlassCard style={styles.card}>
               {!scheduleView ? (
@@ -542,16 +665,30 @@ export default function Home() {
                     {(['instantly', 'tomorrow', 'custom'] as const).map((mode) => {
                       const isSelected = pickupMode === mode;
                       const isDisabled = mode === 'instantly' && !isWithinBusinessHours;
-                      const label =
+                      const hasTime = isSelected && mode !== 'instantly' && scheduledHour !== null;
+                      const dayLabel =
                         mode === 'instantly' ? 'Instantly' : mode === 'tomorrow' ? 'Tomorrow' : customDate ? formatCustomDate(customDate) : 'Pick Date';
+                      const label = hasTime ? `${dayLabel}, ${formatTimeOfDay(scheduledHour!, scheduledMinute)}` : dayLabel;
                       return (
                         <TouchableOpacity
                           key={mode}
                           style={[styles.segment, isSelected && styles.segmentSelected, isDisabled && styles.segmentDisabled]}
                           disabled={isDisabled}
-                          onPress={() => (mode === 'custom' ? handleSelectCustomDate() : setPickupMode(mode))}
+                          onPress={() => {
+                            if (mode === 'custom') handleSelectCustomDate();
+                            else if (mode === 'tomorrow') handleSelectTomorrow();
+                            else {
+                              setPickupMode('instantly');
+                              setScheduledHour(null);
+                            }
+                          }}
                         >
-                          <Text style={[styles.segmentText, isSelected && styles.segmentTextSelected, isDisabled && styles.segmentTextDisabled]}>{label}</Text>
+                          <Text
+                            style={[styles.segmentText, isSelected && styles.segmentTextSelected, isDisabled && styles.segmentTextDisabled]}
+                            numberOfLines={1}
+                          >
+                            {label}
+                          </Text>
                         </TouchableOpacity>
                       );
                     })}
@@ -566,6 +703,21 @@ export default function Home() {
                       minimumDate={minimumScheduleDate}
                       accentColor="#007AFF"
                       onChange={handleDateChange}
+                    />
+                  )}
+
+                  {showTimePicker && (
+                    <DateTimePicker
+                      style={styles.datePicker}
+                      value={(() => {
+                        const d = new Date();
+                        d.setHours(scheduledHour ?? 12, scheduledMinute, 0, 0);
+                        return d;
+                      })()}
+                      mode="time"
+                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                      accentColor="#007AFF"
+                      onChange={handleTimeChange}
                     />
                   )}
                 </>
@@ -1032,6 +1184,63 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     textAlign: 'center',
+  },
+  closedScheduleSubtitle: {
+    fontSize: 12,
+    color: 'rgba(0,0,0,0.5)',
+    marginTop: 4,
+    lineHeight: 17,
+  },
+  slotGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 16,
+  },
+  slotButton: {
+    width: '47%',
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+    backgroundColor: '#FAFAFA',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+  slotButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  orDividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 16,
+  },
+  orDividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+  },
+  orDividerText: {
+    fontSize: 12,
+    color: 'rgba(0,0,0,0.4)',
+  },
+  choosePreciseTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 16,
+    padding: 14,
+    borderRadius: 14,
+    backgroundColor: '#FAFAFA',
+    borderWidth: 1,
+    borderColor: '#007AFF',
+  },
+  choosePreciseTimeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#007AFF',
+    flex: 1,
   },
   amountHeaderRow: {
     flexDirection: 'row',
