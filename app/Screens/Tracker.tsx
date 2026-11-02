@@ -24,6 +24,7 @@ import {
 import { MAP_TILE_URL } from '@/lib/mapTiles';
 import GlassCard from '@/components/GlassCard';
 import CancelOrderModal from '@/components/CancelOrderModal';
+import RatingSheet from '@/components/RatingSheet';
 
 const PRIMARY = '#0088FF';
 const PRIMARY_TINT = 'rgba(0,136,255,0.10)';
@@ -568,11 +569,20 @@ export default function Tracker() {
   // feed exists yet, per standing direction to defer that integration.
   const [minStep, setMinStep] = useState(0);
   const [demoMode, setDemoMode] = useState<DemoMode>('normal');
+  const [ratingSheetVisible, setRatingSheetVisible] = useState(false);
 
   useEffect(() => {
     if (demoMode !== 'normal' || minStep >= STEPS.length) return;
     const timer = setTimeout(() => setMinStep((s) => s + 1), STEP_DELAY_MS);
     return () => clearTimeout(timer);
+  }, [demoMode, minStep]);
+
+  // Ask for a rating/complaint the moment a delivery finishes, instead of
+  // only offering it from a details page the customer might never open.
+  useEffect(() => {
+    if (demoMode === 'normal' && minStep >= STEPS.length) {
+      setRatingSheetVisible(true);
+    }
   }, [demoMode, minStep]);
 
   // Road-following route from the station to the customer, via OSRM's free
@@ -778,6 +788,13 @@ export default function Tracker() {
         visible={cancelModalVisible}
         onClose={() => setCancelModalVisible(false)}
         onConfirm={handleConfirmCancel}
+      />
+
+      <RatingSheet
+        visible={ratingSheetVisible}
+        riderName={DEMO_RIDER.firstName}
+        onClose={() => setRatingSheetVisible(false)}
+        onSubmit={() => setRatingSheetVisible(false)}
       />
     </View>
   );
