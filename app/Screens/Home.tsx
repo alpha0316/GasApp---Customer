@@ -745,30 +745,20 @@ export default function Home() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.locationLabel}>Your Location</Text>
-              <Text style={styles.locationSearchValue} numberOfLines={1}>{currentLocation}</Text>
+              <TextInput
+                value={locationQuery}
+                onChangeText={setLocationQuery}
+                placeholder={currentLocation}
+                placeholderTextColor="rgba(0,0,0,0.5)"
+                style={styles.locationSearchValue}
+                returnKeyType="done"
+                onSubmitEditing={() => Keyboard.dismiss()}
+                autoFocus
+              />
             </View>
             <TouchableOpacity onPress={handleCloseLocationSearch}>
               <X size={22} color="#000" />
             </TouchableOpacity>
-          </View>
-
-          <View style={styles.locationSearchInputWrapper}>
-            <MagnifyingGlass size={16} color="rgba(0,0,0,0.4)" />
-            <TextInput
-              value={locationQuery}
-              onChangeText={setLocationQuery}
-              placeholder="Search for a location"
-              placeholderTextColor="rgba(0,0,0,0.4)"
-              style={styles.locationSearchInput}
-              returnKeyType="done"
-              onSubmitEditing={() => Keyboard.dismiss()}
-              autoFocus
-            />
-            {locationQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setLocationQuery('')}>
-                <X size={16} color="rgba(0,0,0,0.4)" />
-              </TouchableOpacity>
-            )}
           </View>
 
           <View style={styles.locationSearchDivider} />
@@ -1277,24 +1267,8 @@ const styles = StyleSheet.create({
   locationSearchValue: {
     fontSize: 16,
     fontWeight: '700',
-    color: 'rgba(0,0,0,0.5)',
-  },
-  locationSearchInputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginHorizontal: 16,
-    marginTop: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 14,
-    backgroundColor: '#FAFAFA',
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.08)',
-  },
-  locationSearchInput: {
-    flex: 1,
-    fontSize: 15,
+    color: '#000',
+    padding: 0,
   },
   locationSearchDivider: {
     height: 1,
