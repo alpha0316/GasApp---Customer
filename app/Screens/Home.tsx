@@ -493,7 +493,7 @@ export default function Home() {
           )}
         </MapView>
 
-        <View style={[styles.mapTopBar, { top: 20 }]}>
+        <View style={[styles.mapTopBar, { top: insets.top + 12 }]}>
           <AppMenuButton active="home" />
           <TouchableOpacity style={styles.mapIconButton} onPress={handleRefocus}>
             <Crosshair size={20} color="#000" />

@@ -704,14 +704,14 @@ export default function Tracker() {
         )}
       </MapView>
 
-      <TouchableOpacity style={[styles.homeButton, { top: 20 }]} onPress={handleGoHome}>
+      <TouchableOpacity style={[styles.homeButton, { top: insets.top + 12 }]} onPress={handleGoHome}>
         <House size={20} weight="bold" color="#000" />
       </TouchableOpacity>
 
       {/* Demo-only: preview states that need a backend feature which
           doesn't exist yet — rider busy with another delivery (queued), or
           rider flagging a problem with the order (change requested). */}
-      <View style={[styles.demoPanel, { top: 20}]}>
+      <View style={[styles.demoPanel, { top: insets.top + 12 }]}>
         <View style={styles.demoPanelHeader}>
           <Flask size={12} weight="bold" color="rgba(0,0,0,0.5)" />
           <Text style={styles.demoPanelHeaderText}>Demo</Text>

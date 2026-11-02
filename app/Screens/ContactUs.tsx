@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Linking, Modal } from 'react-native';
 import { CheckCircle, EnvelopeSimple, MapPin, Phone } from 'phosphor-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppMenuButton from '@/components/AppMenu';
 import PrimaryButton from '@/components/PrimaryButton';
 
@@ -75,6 +76,7 @@ function FormField({
 }
 
 export default function ContactUs() {
+  const insets = useSafeAreaInsets();
   const [name, setName] = useState('');
   const [contact, setContact] = useState('');
   const [message, setMessage] = useState('');
@@ -95,7 +97,7 @@ export default function ContactUs() {
 
   return (
     <View style={styles.main}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <AppMenuButton active="contact" />
         <Text style={styles.headerTitle}>Contact Us</Text>
       </View>

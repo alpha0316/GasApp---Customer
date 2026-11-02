@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Bell, CheckCircle, GasPump, Package, Tag } from 'phosphor-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppMenuButton from '@/components/AppMenu';
 
 const PRIMARY = '#007AFF';
@@ -121,6 +122,7 @@ function NotificationRow({ item, onRead }: { item: NotificationItem; onRead: () 
 }
 
 export default function Notification() {
+  const insets = useSafeAreaInsets();
   const [items, setItems] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
 
   const unreadCount = items.filter((n) => !n.read).length;
@@ -141,7 +143,7 @@ export default function Notification() {
 
   return (
     <View style={styles.main}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <AppMenuButton active="notifications" />
         <Text style={styles.headerTitle}>Notifications</Text>
       </View>

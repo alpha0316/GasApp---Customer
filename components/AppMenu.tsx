@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, ViewStyle } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Bell, ClockCounterClockwise, Gear, House, List, Phone, SignOut } from 'phosphor-react-native';
 import { clearSession } from '@/lib/mockUserStore';
 
@@ -14,7 +15,12 @@ export type AppMenuActive = 'home' | 'orders' | 'notifications' | 'contact' | nu
 // of where the button itself is mounted in a given screen's layout.
 export default function AppMenuButton({ active = null, style }: { active?: AppMenuActive; style?: ViewStyle }) {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
+  // Every screen that mounts this button positions it at insets.top + 12;
+  // the dropdown drops below it (button height + a small gap) regardless
+  // of device notch/Dynamic Island size, instead of a flat pixel offset.
+  const dropdownTop = insets.top + 12 + 40 + 8;
 
   const close = () => setOpen(false);
 
@@ -81,7 +87,7 @@ export default function AppMenuButton({ active = null, style }: { active?: AppMe
       </TouchableOpacity>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={close}>
-        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={close}>
+        <TouchableOpacity style={[styles.backdrop, { paddingTop: dropdownTop }]} activeOpacity={1} onPress={close}>
           <TouchableOpacity activeOpacity={1} style={styles.dropdown} onPress={(e) => e.stopPropagation()}>
             {items.map((item) => (
               <TouchableOpacity
@@ -135,7 +141,6 @@ const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.15)',
-    paddingTop: 70,
     paddingLeft: 16,
   },
   dropdown: {

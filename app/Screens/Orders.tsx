@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Linking, Share, Modal, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   CalendarBlank,
@@ -401,6 +402,7 @@ function DateRangeModal({
 
 export default function Orders() {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<Tab>('incoming');
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
@@ -452,7 +454,7 @@ export default function Orders() {
 
   return (
     <View style={styles.main}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <AppMenuButton active="orders" />
         <Text style={styles.headerTitle}>Orders</Text>
         <TouchableOpacity
