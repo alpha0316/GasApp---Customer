@@ -127,7 +127,6 @@ export default function Home() {
   const [pickupLabel, setPickupLabel] = useState('Now');
   const [forceScheduleAfterSave, setForceScheduleAfterSave] = useState(false);
   const [locationQuery, setLocationQuery] = useState('');
-  const [searchingLocation, setSearchingLocation] = useState(false);
 
   useEffect(() => {
     if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -192,6 +191,7 @@ export default function Home() {
 
   const handleOpenLocationSearch = () => {
     glide();
+    setLocationQuery('');
     setStep('location');
   };
 
@@ -221,24 +221,6 @@ export default function Home() {
     glide();
     setLocationQuery('');
     setStep('select');
-  };
-
-  const handleSubmitLocationSearch = async () => {
-    const query = locationQuery.trim();
-    if (!query) return;
-    setSearchingLocation(true);
-    try {
-      const results = await Location.geocodeAsync(query);
-      if (results.length > 0) {
-        handleSelectPresetLocation({ name: query, latitude: results[0].latitude, longitude: results[0].longitude });
-      } else {
-        Alert.alert('Location not found', "We couldn't find that address. Try a different search or pick a location below.");
-      }
-    } catch (error) {
-      Alert.alert('Search failed', 'Something went wrong searching for that location. Please try again.');
-    } finally {
-      setSearchingLocation(false);
-    }
   };
 
   const formatCustomDate = (date: Date) => date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
@@ -370,6 +352,10 @@ export default function Home() {
   };
 
   const selectedStationDetails = stationsWithDistance.find((s) => s.key === selectedStation);
+
+  const filteredLocations = PRESET_LOCATIONS.filter((loc) =>
+    loc.name.toLowerCase().includes(locationQuery.trim().toLowerCase())
+  );
 
   const amountUnits = CYLINDERS.flatMap((c) =>
     Array.from({ length: quantities[c.key] }, (_, i) => ({
@@ -774,8 +760,8 @@ export default function Home() {
               placeholder="Search for a location"
               placeholderTextColor="rgba(0,0,0,0.4)"
               style={styles.locationSearchInput}
-              returnKeyType="search"
-              onSubmitEditing={handleSubmitLocationSearch}
+              returnKeyType="done"
+              onSubmitEditing={() => Keyboard.dismiss()}
               autoFocus
             />
             {locationQuery.length > 0 && (
@@ -788,19 +774,7 @@ export default function Home() {
           <View style={styles.locationSearchDivider} />
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.locationSearchContent}>
-            {locationQuery.trim().length > 0 ? (
-              <TouchableOpacity
-                style={styles.locationListRow}
-                onPress={handleSubmitLocationSearch}
-                disabled={searchingLocation}
-              >
-                <MagnifyingGlass size={18} color="#007AFF" />
-                <Text style={styles.currentLocationText} numberOfLines={1}>
-                  {searchingLocation ? 'Searching…' : `Search for "${locationQuery.trim()}"`}
-                </Text>
-                <CaretRight size={16} color="#007AFF" />
-              </TouchableOpacity>
-            ) : (
+            {locationQuery.trim().length === 0 && (
               <>
                 <Text style={styles.recentLabel}>Recent</Text>
                 <TouchableOpacity style={styles.recentChip} onPress={() => setLocationQuery('Qua Street')}>
@@ -816,15 +790,17 @@ export default function Home() {
               <CaretRight size={16} color="#007AFF" />
             </TouchableOpacity>
 
-            {PRESET_LOCATIONS.filter((loc) =>
-              loc.name.toLowerCase().includes(locationQuery.trim().toLowerCase())
-            ).map((loc) => (
+            {filteredLocations.map((loc) => (
               <TouchableOpacity key={loc.name} style={styles.locationListRow} onPress={() => handleSelectPresetLocation(loc)}>
                 <MapPin size={18} color="rgba(0,0,0,0.4)" />
                 <Text style={styles.locationListText}>{loc.name}</Text>
                 <CaretRight size={16} color="rgba(0,0,0,0.3)" />
               </TouchableOpacity>
             ))}
+
+            {locationQuery.trim().length > 0 && filteredLocations.length === 0 && (
+              <Text style={styles.noLocationMatches}>No saved locations match "{locationQuery.trim()}".</Text>
+            )}
           </ScrollView>
         </View>
       )}
@@ -1368,5 +1344,11 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: '#000',
+  },
+  noLocationMatches: {
+    fontSize: 13,
+    color: 'rgba(0,0,0,0.4)',
+    textAlign: 'center',
+    paddingVertical: 24,
   },
 });
