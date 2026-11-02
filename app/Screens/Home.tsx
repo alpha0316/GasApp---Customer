@@ -126,6 +126,8 @@ export default function Home() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [pickupLabel, setPickupLabel] = useState('Now');
   const [forceScheduleAfterSave, setForceScheduleAfterSave] = useState(false);
+  const [locationQuery, setLocationQuery] = useState('');
+  const [searchingLocation, setSearchingLocation] = useState(false);
 
   useEffect(() => {
     if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -195,11 +197,13 @@ export default function Home() {
 
   const handleCloseLocationSearch = () => {
     glide();
+    setLocationQuery('');
     setStep('select');
   };
 
   const handleUseCurrentLocation = () => {
     glide();
+    setLocationQuery('');
     setStep('select');
     // Fire-and-forget so the overlay closes immediately instead of
     // waiting on the GPS fix; the map animates to the new position (or
@@ -215,7 +219,26 @@ export default function Home() {
     mapRef.current?.animateToRegion(newRegion, 500);
     setCurrentLocation(loc.name);
     glide();
+    setLocationQuery('');
     setStep('select');
+  };
+
+  const handleSubmitLocationSearch = async () => {
+    const query = locationQuery.trim();
+    if (!query) return;
+    setSearchingLocation(true);
+    try {
+      const results = await Location.geocodeAsync(query);
+      if (results.length > 0) {
+        handleSelectPresetLocation({ name: query, latitude: results[0].latitude, longitude: results[0].longitude });
+      } else {
+        Alert.alert('Location not found', "We couldn't find that address. Try a different search or pick a location below.");
+      }
+    } catch (error) {
+      Alert.alert('Search failed', 'Something went wrong searching for that location. Please try again.');
+    } finally {
+      setSearchingLocation(false);
+    }
   };
 
   const formatCustomDate = (date: Date) => date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
@@ -743,14 +766,49 @@ export default function Home() {
             </TouchableOpacity>
           </View>
 
+          <View style={styles.locationSearchInputWrapper}>
+            <MagnifyingGlass size={16} color="rgba(0,0,0,0.4)" />
+            <TextInput
+              value={locationQuery}
+              onChangeText={setLocationQuery}
+              placeholder="Search for a location"
+              placeholderTextColor="rgba(0,0,0,0.4)"
+              style={styles.locationSearchInput}
+              returnKeyType="search"
+              onSubmitEditing={handleSubmitLocationSearch}
+              autoFocus
+            />
+            {locationQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setLocationQuery('')}>
+                <X size={16} color="rgba(0,0,0,0.4)" />
+              </TouchableOpacity>
+            )}
+          </View>
+
           <View style={styles.locationSearchDivider} />
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.locationSearchContent}>
-            <Text style={styles.recentLabel}>Recent</Text>
-            <View style={styles.recentChip}>
-              <MagnifyingGlass size={14} color="rgba(0,0,0,0.5)" />
-              <Text style={styles.recentChipText}>Qua Street</Text>
-            </View>
+            {locationQuery.trim().length > 0 ? (
+              <TouchableOpacity
+                style={styles.locationListRow}
+                onPress={handleSubmitLocationSearch}
+                disabled={searchingLocation}
+              >
+                <MagnifyingGlass size={18} color="#007AFF" />
+                <Text style={styles.currentLocationText} numberOfLines={1}>
+                  {searchingLocation ? 'Searching…' : `Search for "${locationQuery.trim()}"`}
+                </Text>
+                <CaretRight size={16} color="#007AFF" />
+              </TouchableOpacity>
+            ) : (
+              <>
+                <Text style={styles.recentLabel}>Recent</Text>
+                <TouchableOpacity style={styles.recentChip} onPress={() => setLocationQuery('Qua Street')}>
+                  <MagnifyingGlass size={14} color="rgba(0,0,0,0.5)" />
+                  <Text style={styles.recentChipText}>Qua Street</Text>
+                </TouchableOpacity>
+              </>
+            )}
 
             <TouchableOpacity style={styles.locationListRow} onPress={handleUseCurrentLocation}>
               <NavigationArrow size={18} color="#007AFF" weight="fill" />
@@ -758,7 +816,9 @@ export default function Home() {
               <CaretRight size={16} color="#007AFF" />
             </TouchableOpacity>
 
-            {PRESET_LOCATIONS.map((loc) => (
+            {PRESET_LOCATIONS.filter((loc) =>
+              loc.name.toLowerCase().includes(locationQuery.trim().toLowerCase())
+            ).map((loc) => (
               <TouchableOpacity key={loc.name} style={styles.locationListRow} onPress={() => handleSelectPresetLocation(loc)}>
                 <MapPin size={18} color="rgba(0,0,0,0.4)" />
                 <Text style={styles.locationListText}>{loc.name}</Text>
@@ -1243,9 +1303,27 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: 'rgba(0,0,0,0.5)',
   },
+  locationSearchInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: '#FAFAFA',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.08)',
+  },
+  locationSearchInput: {
+    flex: 1,
+    fontSize: 15,
+  },
   locationSearchDivider: {
     height: 1,
     backgroundColor: 'rgba(0,0,0,0.08)',
+    marginTop: 12,
   },
   locationSearchContent: {
     paddingTop: 16,
