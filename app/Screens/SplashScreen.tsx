@@ -24,6 +24,7 @@ import Animated, {
 import { Phone } from 'phosphor-react-native';
 import { GOOGLE_G_XML, EMAIL_DARK_XML } from '@/components/icons/BrandIcons';
 import { getSession } from '@/lib/mockUserStore';
+import { primeLocation } from '@/lib/locationStore';
 
 const SPLASH_HOLD_MS = 1800;
 const RISE_MS = 700;
@@ -44,6 +45,13 @@ export default function SplashScreen() {
   // beat, then animate that offset back to 0 so it visibly glides up.
   const logoTranslateY = useSharedValue(0);
   const logoOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    // Start fetching the user's location as early as the app opens, well
+    // before Home mounts, so the map there is already focused on the real
+    // position instead of starting from the default fallback coordinates.
+    primeLocation();
+  }, []);
 
   useEffect(() => {
     swingDeg.value = withRepeat(

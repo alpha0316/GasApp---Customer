@@ -22,6 +22,7 @@ import * as Location from 'expo-location';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SvgXml } from 'react-native-svg';
 import { MAP_TILE_URL } from '@/lib/mapTiles';
+import { getCachedAddress, getCachedCoords, primeLocation } from '@/lib/locationStore';
 import { LOCATION_MARKER_XML } from '@/components/icons/BrandIcons';
 import StationPinIcon from '@/components/StationPinIcon';
 import GlassCard from '@/components/GlassCard';
@@ -103,18 +104,24 @@ export default function Home() {
   const insets = useSafeAreaInsets();
   const mapRef = useRef<MapView>(null);
 
-  const [region, setRegion] = useState({
-    latitude: DEFAULT_LATITUDE,
-    longitude: DEFAULT_LONGITUDE,
-    latitudeDelta: 0.01,
-    longitudeDelta: 0.01,
+  const [region, setRegion] = useState(() => {
+    const cached = getCachedCoords();
+    return {
+      latitude: cached?.latitude ?? DEFAULT_LATITUDE,
+      longitude: cached?.longitude ?? DEFAULT_LONGITUDE,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    };
   });
-  const [userLocation, setUserLocation] = useState({
-    latitude: DEFAULT_LATITUDE,
-    longitude: DEFAULT_LONGITUDE,
+  const [userLocation, setUserLocation] = useState(() => {
+    const cached = getCachedCoords();
+    return {
+      latitude: cached?.latitude ?? DEFAULT_LATITUDE,
+      longitude: cached?.longitude ?? DEFAULT_LONGITUDE,
+    };
   });
   const [routePath, setRoutePath] = useState<{ latitude: number; longitude: number }[] | null>(null);
-  const [currentLocation, setCurrentLocation] = useState('Locating…');
+  const [currentLocation, setCurrentLocation] = useState(() => getCachedAddress() ?? 'Locating…');
   const [quantities, setQuantities] = useState<{ [key: string]: number }>({ small: 1, medium: 0, large: 0 });
   const [step, setStep] = useState<'select' | 'stations' | 'amount' | 'location'>('select');
   const [selectedStation, setSelectedStation] = useState<string | null>(null);
@@ -137,23 +144,20 @@ export default function Home() {
   const glide = () => LayoutAnimation.configureNext(LayoutAnimation.create(320, 'easeInEaseOut', 'opacity'));
 
   useEffect(() => {
+    // Splash already kicked this off (or it's cached from a previous
+    // mount) — this just picks up whatever primeLocation resolves to,
+    // instead of running its own separate permission/GPS/geocode sequence.
     (async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          setCurrentLocation('Location permission denied');
-          return;
-        }
-        const location = await Location.getCurrentPositionAsync({});
-        const coords = { latitude: location.coords.latitude, longitude: location.coords.longitude };
-        setUserLocation(coords);
-        const newRegion = { ...coords, latitudeDelta: 0.01, longitudeDelta: 0.01 };
-        setRegion(newRegion);
-        mapRef.current?.animateToRegion(newRegion, 500);
-        updateAddress(coords);
-      } catch (error) {
-        setCurrentLocation('Custom Location');
+      const coords = await primeLocation();
+      if (!coords) {
+        setCurrentLocation((prev) => (prev === 'Locating…' ? 'Location permission denied' : prev));
+        return;
       }
+      setUserLocation(coords);
+      const newRegion = { ...coords, latitudeDelta: 0.01, longitudeDelta: 0.01 };
+      setRegion(newRegion);
+      mapRef.current?.animateToRegion(newRegion, 500);
+      setCurrentLocation(getCachedAddress() ?? 'Custom Location');
     })();
   }, []);
 
@@ -325,6 +329,21 @@ export default function Home() {
       cancelled = true;
     };
   }, [userLocation.latitude, userLocation.longitude, routeTargetStation?.key, routeTargetStation?.latitude, routeTargetStation?.longitude]);
+
+  // Smoothly fly the camera to frame the user and the selected station
+  // whenever the station changes, instead of leaving the map wherever it
+  // was while the panel/route silently update underneath it.
+  useEffect(() => {
+    if (step !== 'stations' || !routeTargetStation) return;
+    const points = [userLocation, { latitude: routeTargetStation.latitude, longitude: routeTargetStation.longitude }];
+    const timer = setTimeout(() => {
+      mapRef.current?.fitToCoordinates(points, {
+        edgePadding: { top: insets.top + 80, left: 60, right: 60, bottom: 420 },
+        animated: true,
+      });
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [step, routeTargetStation?.key]);
 
   const handlePlaceOrder = () => {
     if (isOrderDisabled) return;
