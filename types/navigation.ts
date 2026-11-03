@@ -15,6 +15,7 @@ export type RootStackParamList = {
   SelectSchool: undefined;
   Home: undefined;
   Orders: undefined;
+  OrderDetails: any;
   Notification: undefined;
   ContactUs: undefined;
   SelectCylinder: any;

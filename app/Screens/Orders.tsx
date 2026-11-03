@@ -1,18 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Linking, Share, Modal, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Modal, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import {
-  CalendarBlank,
-  CaretDown,
-  CaretUp,
-  MagnifyingGlass,
-  Package,
-  Phone,
-  ShareNetwork,
-  X,
-} from 'phosphor-react-native';
+import { CalendarBlank, CaretRight, MagnifyingGlass, Package, X } from 'phosphor-react-native';
 import AppMenuButton from '@/components/AppMenu';
 
 const PRIMARY = '#007AFF';
@@ -59,6 +50,7 @@ interface OrderItem {
   id: string;
   size: 'small' | 'medium' | 'large';
   status: OrderStatus;
+  stationName: string;
   address: string;
   pickupTime: string;
   paymentMethod: 'cash' | 'paystack';
@@ -78,6 +70,7 @@ const FALLBACK_ORDERS: OrderItem[] = [
     id: 'demo-order-1',
     size: 'medium',
     status: 'en_route_to_customer',
+    stationName: 'GOIL Filling Station',
     address: 'Harper Rd, Adum, Kumasi',
     pickupTime: 'Now',
     paymentMethod: 'cash',
@@ -88,6 +81,7 @@ const FALLBACK_ORDERS: OrderItem[] = [
     id: 'demo-order-2',
     size: 'small',
     status: 'filling',
+    stationName: 'Shell Filling Station',
     address: 'Liberation Rd, Accra',
     pickupTime: 'Now',
     paymentMethod: 'cash',
@@ -98,6 +92,7 @@ const FALLBACK_ORDERS: OrderItem[] = [
     id: 'demo-order-3',
     size: 'medium',
     status: 'awaiting_rider',
+    stationName: 'GOIL Filling Station',
     address: 'Dzorwulu Ave, Accra',
     pickupTime: 'Tomorrow, 10:00 AM',
     paymentMethod: 'cash',
@@ -108,6 +103,7 @@ const FALLBACK_ORDERS: OrderItem[] = [
     id: 'demo-order-4',
     size: 'large',
     status: 'delivered',
+    stationName: 'TotalEnergies Filling Station',
     address: 'Spintex Rd, Accra',
     pickupTime: 'Now',
     paymentMethod: 'cash',
@@ -118,6 +114,7 @@ const FALLBACK_ORDERS: OrderItem[] = [
     id: 'demo-order-5',
     size: 'small',
     status: 'delivered',
+    stationName: 'GOIL Filling Station',
     address: 'Oxford St, Osu, Accra',
     pickupTime: 'Now',
     paymentMethod: 'cash',
@@ -128,6 +125,7 @@ const FALLBACK_ORDERS: OrderItem[] = [
     id: 'demo-order-6',
     size: 'medium',
     status: 'delivered',
+    stationName: 'Shell Filling Station',
     address: 'Ring Rd, Kumasi',
     pickupTime: 'Now',
     paymentMethod: 'cash',
@@ -138,6 +136,7 @@ const FALLBACK_ORDERS: OrderItem[] = [
     id: 'demo-order-7',
     size: 'small',
     status: 'cancelled',
+    stationName: 'GOIL Filling Station',
     address: 'Tema Station Rd, Accra',
     pickupTime: 'Now',
     paymentMethod: 'cash',
@@ -148,6 +147,7 @@ const FALLBACK_ORDERS: OrderItem[] = [
     id: 'demo-order-8',
     size: 'large',
     status: 'refunded',
+    stationName: 'TotalEnergies Filling Station',
     address: 'Adabraka St, Accra',
     pickupTime: 'Now',
     paymentMethod: 'cash',
@@ -194,61 +194,18 @@ function formatTime(ts: number): string {
   return new Date(ts).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
-function formatMoney(amount: number | null) {
-  if (amount === null) return '—';
-  return `GH ${amount.toFixed(2)}`;
-}
-
 function formatShortDate(date: Date | null) {
   if (!date) return '…';
   return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-async function shareReceipt(order: OrderItem) {
-  const cylinder = CYLINDER_INFO[order.size];
-  const amount = cylinder?.price ?? null;
-  const lines = [
-    'GasApp — Order Receipt',
-    '--------------------------------',
-    `Order ID: ${order.id}`,
-    `Date: ${new Date(orderTimestamp(order)).toLocaleString()}`,
-    `Status: ${statusMeta(order.status).label}`,
-    '',
-    `Item: 1 x ${cylinder?.name ?? order.size}`,
-    `Amount: ${formatMoney(amount)}`,
-    `Payment method: ${order.paymentMethod === 'cash' ? 'Cash on delivery' : 'Paystack'}`,
-    '',
-    `Delivered to: ${order.address}`,
-    '--------------------------------',
-    'Thank you for using GasApp.',
-  ];
-  try {
-    await Share.share({ message: lines.join('\n') });
-  } catch {
-    // Share sheet dismissed/cancelled — nothing to do.
-  }
-}
-
-function Row({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
-  return (
-    <View style={styles.row}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={[styles.rowValue, bold && styles.rowValueBold]} numberOfLines={1}>
-        {value}
-      </Text>
-    </View>
-  );
-}
-
-function OrderCard({ order, expanded, onToggle }: { order: OrderItem; expanded: boolean; onToggle: () => void }) {
+function OrderCard({ order, onPress }: { order: OrderItem; onPress: () => void }) {
   const meta = statusMeta(order.status);
   const cylinder = CYLINDER_INFO[order.size];
-  const amount = cylinder?.price ?? null;
-  const initials = order.rider ? `${order.rider.firstName[0] ?? ''}${order.rider.lastName[0] ?? ''}`.toUpperCase() : '';
 
   return (
-    <View style={styles.card}>
-      <TouchableOpacity style={styles.cardHeader} onPress={onToggle} activeOpacity={0.7}>
+    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
+      <View style={styles.cardHeader}>
         <View style={[styles.cardIcon, { backgroundColor: meta.bg }]}>
           <Package size={18} color={meta.color} weight="fill" />
         </View>
@@ -267,51 +224,9 @@ function OrderCard({ order, expanded, onToggle }: { order: OrderItem; expanded: 
           <Text style={[styles.statusBadgeText, { color: meta.color }]}>{meta.label}</Text>
         </View>
 
-        {expanded ? (
-          <CaretUp size={16} weight="bold" color="rgba(0,0,0,0.4)" />
-        ) : (
-          <CaretDown size={16} weight="bold" color="rgba(0,0,0,0.4)" />
-        )}
-      </TouchableOpacity>
-
-      {expanded && (
-        <View style={styles.cardBody}>
-          <Row label="Order" value={`#${order.id.slice(-8)}`} />
-          <Row label="Item" value={`1 x ${cylinder?.name ?? order.size}`} />
-          <Row label="Deliver To" value={order.address} />
-          <Row label="Payment" value={order.paymentMethod === 'cash' ? 'Cash on delivery' : 'Paystack'} />
-          <Row label="Amount" value={formatMoney(amount)} bold />
-
-          {order.rider && (
-            <View style={{ marginTop: 4 }}>
-              <Text style={styles.riderLabel}>Rider</Text>
-              <View style={styles.riderCard}>
-                <View style={styles.riderAvatar}>
-                  <Text style={styles.riderAvatarText}>{initials}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.riderName} numberOfLines={1}>
-                    {order.rider.firstName} {order.rider.lastName}
-                  </Text>
-                  <Text style={styles.riderPhone}>{order.rider.phoneNumber}</Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.callButton}
-                  onPress={() => Linking.openURL(`tel:${order.rider!.phoneNumber}`)}
-                >
-                  <Phone size={16} weight="fill" color="#fff" />
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-
-          <TouchableOpacity style={styles.shareButton} onPress={() => shareReceipt(order)}>
-            <ShareNetwork size={16} weight="bold" color="#fff" />
-            <Text style={styles.shareButtonText}>Share Receipt</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-    </View>
+        <CaretRight size={16} weight="bold" color="rgba(0,0,0,0.4)" />
+      </View>
+    </TouchableOpacity>
   );
 }
 
@@ -406,7 +321,6 @@ export default function Orders() {
   const [tab, setTab] = useState<Tab>('incoming');
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [dateModalOpen, setDateModalOpen] = useState(false);
   const [dateRange, setDateRange] = useState<{ from: Date | null; to: Date | null }>({ from: null, to: null });
   const [draftRange, setDraftRange] = useState(dateRange);
@@ -529,8 +443,7 @@ export default function Orders() {
                 <OrderCard
                   key={order.id}
                   order={order}
-                  expanded={expandedId === order.id}
-                  onToggle={() => setExpandedId(expandedId === order.id ? null : order.id)}
+                  onPress={() => navigation.navigate('OrderDetails', { order })}
                 />
               ))}
             </View>
@@ -727,93 +640,6 @@ const styles = StyleSheet.create({
   },
   statusBadgeText: {
     fontSize: 11,
-    fontWeight: '700',
-  },
-  cardBody: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    gap: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.06)',
-    paddingTop: 12,
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 12,
-  },
-  rowLabel: {
-    fontSize: 13,
-    color: 'rgba(0,0,0,0.5)',
-    flexShrink: 0,
-  },
-  rowValue: {
-    fontSize: 13,
-    fontWeight: '600',
-    textAlign: 'right',
-    flexShrink: 1,
-  },
-  rowValueBold: {
-    fontWeight: '700',
-  },
-  riderLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: 'rgba(0,0,0,0.4)',
-    textTransform: 'uppercase',
-    marginBottom: 6,
-  },
-  riderCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: '#FAFAFA',
-    borderRadius: 14,
-    padding: 10,
-  },
-  riderAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: PRIMARY,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  riderAvatarText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 13,
-  },
-  riderName: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  riderPhone: {
-    fontSize: 12,
-    color: 'rgba(0,0,0,0.5)',
-  },
-  callButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: GREEN,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  shareButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 4,
-    paddingVertical: 12,
-    borderRadius: 9999,
-    backgroundColor: '#000',
-  },
-  shareButtonText: {
-    color: '#fff',
-    fontSize: 14,
     fontWeight: '700',
   },
   modalOverlay: {
