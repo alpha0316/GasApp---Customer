@@ -569,7 +569,7 @@ export default function Home() {
           )}
         </MapView>
 
-        <View style={[styles.mapTopBar, { top: insets.top + 12 }]}>
+        <View style={[styles.mapTopBar, { top: '10%' }]}>
           <AppMenuButton active="home" />
           <TouchableOpacity style={styles.mapIconButton} onPress={handleRefocus}>
             <Crosshair size={20} color="#000" />
@@ -611,18 +611,21 @@ export default function Home() {
             </TouchableOpacity>
 
             {showClosedTimePicker && (
-              <DateTimePicker
-                style={styles.datePicker}
-                value={(() => {
-                  const d = new Date();
-                  d.setHours(BUSINESS_OPEN_HOUR, 0, 0, 0);
-                  return d;
-                })()}
-                mode="time"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                accentColor="#007AFF"
-                onChange={handleClosedTimeChange}
-              />
+              <View style={styles.pickerWrapper}>
+                <DateTimePicker
+                  style={styles.datePicker}
+                  value={(() => {
+                    const d = new Date();
+                    d.setHours(BUSINESS_OPEN_HOUR, 0, 0, 0);
+                    return d;
+                  })()}
+                  mode="time"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  textColor="#000"
+                  accentColor="#007AFF"
+                  onChange={handleClosedTimeChange}
+                />
+              </View>
             )}
           </GlassCard>
         ) : step === 'select' ? (
@@ -695,30 +698,36 @@ export default function Home() {
                   </View>
 
                   {showDatePicker && (
-                    <DateTimePicker
-                      style={styles.datePicker}
-                      value={customDate ?? minimumScheduleDate}
-                      mode="date"
-                      display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                      minimumDate={minimumScheduleDate}
-                      accentColor="#007AFF"
-                      onChange={handleDateChange}
-                    />
+                    <View style={styles.pickerWrapper}>
+                      <DateTimePicker
+                        style={styles.datePicker}
+                        value={customDate ?? minimumScheduleDate}
+                        mode="date"
+                        display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                        minimumDate={minimumScheduleDate}
+                        textColor="#000"
+                        accentColor="#007AFF"
+                        onChange={handleDateChange}
+                      />
+                    </View>
                   )}
 
                   {showTimePicker && (
-                    <DateTimePicker
-                      style={styles.datePicker}
-                      value={(() => {
-                        const d = new Date();
-                        d.setHours(scheduledHour ?? 12, scheduledMinute, 0, 0);
-                        return d;
-                      })()}
-                      mode="time"
-                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                      accentColor="#007AFF"
-                      onChange={handleTimeChange}
-                    />
+                    <View style={styles.pickerWrapper}>
+                      <DateTimePicker
+                        style={styles.datePicker}
+                        value={(() => {
+                          const d = new Date();
+                          d.setHours(scheduledHour ?? 12, scheduledMinute, 0, 0);
+                          return d;
+                        })()}
+                        mode="time"
+                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                        textColor="#000"
+                        accentColor="#007AFF"
+                        onChange={handleTimeChange}
+                      />
+                    </View>
                   )}
                 </>
               )}
@@ -1445,6 +1454,15 @@ const styles = StyleSheet.create({
   datePicker: {
     marginTop: 4,
     alignSelf: 'center',
+  },
+  // The picker sits on GlassCard's blurred background, which can make the
+  // native iOS spinner/inline picker render with invisible text — a solid
+  // backdrop behind it fixes that.
+  pickerWrapper: {
+    marginTop: 8,
+    borderRadius: 16,
+    backgroundColor: '#fff',
+    overflow: 'hidden',
   },
   segment: {
     flex: 1,
