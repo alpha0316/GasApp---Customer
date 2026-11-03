@@ -569,7 +569,7 @@ export default function Home() {
           )}
         </MapView>
 
-        <View style={[styles.mapTopBar, { top: '10%' }]}>
+        <View style={[styles.mapTopBar, { top: insets.top + 4 }]}>
           <AppMenuButton active="home" />
           <TouchableOpacity style={styles.mapIconButton} onPress={handleRefocus}>
             <Crosshair size={20} color="#000" />
@@ -613,7 +613,7 @@ export default function Home() {
             {showClosedTimePicker && (
               <View style={styles.pickerWrapper}>
                 <DateTimePicker
-                  style={styles.datePicker}
+                  style={[styles.datePicker, styles.timePicker]}
                   value={(() => {
                     const d = new Date();
                     d.setHours(BUSINESS_OPEN_HOUR, 0, 0, 0);
@@ -623,6 +623,7 @@ export default function Home() {
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   textColor="#000"
                   accentColor="#007AFF"
+                  themeVariant="light"
                   onChange={handleClosedTimeChange}
                 />
               </View>
@@ -707,6 +708,7 @@ export default function Home() {
                         minimumDate={minimumScheduleDate}
                         textColor="#000"
                         accentColor="#007AFF"
+                        themeVariant="light"
                         onChange={handleDateChange}
                       />
                     </View>
@@ -715,7 +717,7 @@ export default function Home() {
                   {showTimePicker && (
                     <View style={styles.pickerWrapper}>
                       <DateTimePicker
-                        style={styles.datePicker}
+                        style={[styles.datePicker, styles.timePicker]}
                         value={(() => {
                           const d = new Date();
                           d.setHours(scheduledHour ?? 12, scheduledMinute, 0, 0);
@@ -725,6 +727,7 @@ export default function Home() {
                         display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                         textColor="#000"
                         accentColor="#007AFF"
+                        themeVariant="light"
                         onChange={handleTimeChange}
                       />
                     </View>
@@ -1463,6 +1466,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: '#fff',
     overflow: 'hidden',
+  },
+  // Spinner-mode time pickers need an explicit height — without one they
+  // can lay out with ~0 height on some devices and render nothing visible.
+  timePicker: {
+    height: 200,
+    alignSelf: 'stretch',
   },
   segment: {
     flex: 1,
