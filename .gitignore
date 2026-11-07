@@ -2,7 +2,8 @@ node_modules/
 .expo/
 dist/
 .env
-.env.local
+.env.*
+!.env.example
 npm-debug.*
 *.jks
 *.p8
@@ -20,3 +21,8 @@ web-build/
 
 expo-env.d.ts
 # @end expo-cli
+
+# Local agent and project notes
+CLAUDE.md
+AGENTS.md
+docs/

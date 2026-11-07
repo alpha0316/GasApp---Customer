@@ -27,13 +27,11 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"],
-      "edgeToEdgeEnabled": true,
-      "config": {
-        "googleMaps": {
-          "apiKey": "AIzaSyAeZeUa0pwWr-TGe3NZa5r6y5w7vED4Sjc"
-        }
-      }
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ],
+      "edgeToEdgeEnabled": true
     },
     "web": {
       "bundler": "metro",
@@ -54,7 +52,8 @@
         {
           "locationWhenInUsePermission": "GasApp uses your location to show nearby filling stations and route your delivery."
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true

@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import Svg, { Defs, RadialGradient, Stop, Path, Circle } from 'react-native-svg';
-import { SvgXml } from 'react-native-svg';
+import Svg, { Defs, RadialGradient, Stop, Path, Circle, SvgXml } from 'react-native-svg';
 import { STATION_PUMP_ICON_XML } from '@/components/icons/BrandIcons';
 
 // Ported from the web app's badge-style map pin: a soft radial-gradient

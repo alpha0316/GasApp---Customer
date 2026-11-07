@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, ViewStyle } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Bell, ClockCounterClockwise, Gear, House, List, Phone, SignOut } from 'phosphor-react-native';
-import { clearSession } from '@/lib/mockUserStore';
+import { Bell, ClockCounterClockwise, Gear, House, List, LockKey, Phone, SignOut } from 'phosphor-react-native';
+import { useAuthStore } from '@/features/auth/authStore';
 
 export type AppMenuActive = 'home' | 'orders' | 'notifications' | 'contact' | null;
 
@@ -16,6 +16,9 @@ export type AppMenuActive = 'home' | 'orders' | 'notifications' | 'contact' | nu
 export default function AppMenuButton({ active = null, style }: { active?: AppMenuActive; style?: ViewStyle }) {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+  const signOut = useAuthStore((s) => s.signOut);
+  const user = useAuthStore((s) => s.user);
+  const initials = `${user?.firstName?.[0] ?? ''}${user?.lastName?.[0] ?? ''}`.toUpperCase() || 'GU';
   const [open, setOpen] = useState(false);
   // Every screen that mounts this button positions it at insets.top + 12;
   // the dropdown drops below it (button height + a small gap) regardless
@@ -24,15 +27,15 @@ export default function AppMenuButton({ active = null, style }: { active?: AppMe
 
   const close = () => setOpen(false);
 
-  const goTo = (screen: 'Home' | 'Orders' | 'Notification' | 'ContactUs') => {
+  const goTo = (screen: 'Home' | 'Orders' | 'Notification' | 'ContactUs' | 'SetPassword' | 'Account') => {
     setOpen(false);
     navigation.navigate(screen as never);
   };
 
   const handleSignOut = async () => {
     setOpen(false);
-    await clearSession();
-    navigation.reset({ index: 0, routes: [{ name: 'SplashScreen' }] });
+    // The navigator returns to the splash once the session is gone.
+    await signOut();
   };
 
   const items: { key: Exclude<AppMenuActive, null>; label: string; icon: React.ReactNode; onPress: () => void }[] = [
@@ -107,9 +110,14 @@ export default function AppMenuButton({ active = null, style }: { active?: AppMe
 
             <View style={styles.menuDivider} />
 
-            <TouchableOpacity style={styles.menuItem} onPress={close}>
+            <TouchableOpacity style={styles.menuItem} onPress={() => goTo('SetPassword')}>
+              <LockKey size={18} color="rgba(0,0,0,0.6)" />
+              <Text style={styles.menuItemText}>Password</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={() => goTo('Account')}>
               <View style={styles.menuAvatar}>
-                <Text style={styles.menuAvatarText}>GU</Text>
+                <Text style={styles.menuAvatarText}>{initials}</Text>
               </View>
               <Text style={styles.menuItemText}>My Account</Text>
             </TouchableOpacity>
