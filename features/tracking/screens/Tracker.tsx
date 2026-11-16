@@ -12,7 +12,7 @@ import { MAP_TILE_URL } from '@/lib/mapTiles';
 import GlassCard from '@/components/GlassCard';
 import RatingSheet from '@/features/orders/components/RatingSheet';
 import { useOrder, useRateOrder } from '@/features/orders/hooks';
-import { stepStates } from '@/features/orders/status';
+import { customerStatusLabel, isReassigning, stepStates } from '@/features/orders/status';
 import { useStations } from '@/features/catalog/hooks';
 import { useRoute as useRoadRoute, type LatLng } from '@/features/tracking/hooks';
 import { fromGeoPoint } from '@/lib/geo';
@@ -178,6 +178,10 @@ export default function Tracker() {
   const rider = order && typeof order.riderId === 'object' && order.riderId ? order.riderId : null;
   const status = order?.status;
   const hasRating = !!order?.rating;
+  // The customer only reaches this screen once a rider was assigned, so a status that
+  // falls back to "searching" here means that rider cancelled (doc scenario D).
+  const reassigning = !!status && isReassigning(status);
+  const statusBadge = status ? customerStatusLabel(status) : null;
 
   const customer: LatLng | null = order
     ? { latitude: order.deliveryAddress.lat, longitude: order.deliveryAddress.lng }
@@ -326,29 +330,40 @@ export default function Tracker() {
 
         <View style={styles.cardBody}>
           <View>
-            <Text style={styles.title}>Track All Activities Here</Text>
-            <Text style={styles.subtitle}>Enjoy real time track system as your gas cylinder gets filled</Text>
+            <Text style={styles.title}>{reassigning ? 'Finding another rider' : (statusBadge?.label ?? 'Track All Activities Here')}</Text>
+            <Text style={styles.subtitle}>
+              {reassigning ? 'We are on it.' : (statusBadge?.detail ?? 'Enjoy real time track system as your gas cylinder gets filled')}
+            </Text>
           </View>
 
-          {rider && <RiderCard rider={rider} />}
+          {reassigning ? (
+            <View style={styles.reassigningRow}>
+              <ActivityIndicator color={PRIMARY} />
+              <Text style={styles.reassigningText}>No action needed on your part — we&apos;ll notify you the moment a new rider accepts.</Text>
+            </View>
+          ) : (
+            <>
+              {rider && <RiderCard rider={rider} />}
 
-          <View>
-            <StackedStep
-              icon={STEPS[0].icon}
-              title={STEPS[0].title}
-              subtitle={subtitleFor(0)}
-              status={statusFor(0)}
-              isLast={false}
-            />
-            <FillingStep status={statusFor(1)} isLast={false} />
-            <StackedStep
-              icon={STEPS[2].icon}
-              title={STEPS[2].title}
-              subtitle={subtitleFor(2)}
-              status={statusFor(2)}
-              isLast
-            />
-          </View>
+              <View>
+                <StackedStep
+                  icon={STEPS[0].icon}
+                  title={STEPS[0].title}
+                  subtitle={subtitleFor(0)}
+                  status={statusFor(0)}
+                  isLast={false}
+                />
+                <FillingStep status={statusFor(1)} isLast={false} />
+                <StackedStep
+                  icon={STEPS[2].icon}
+                  title={STEPS[2].title}
+                  subtitle={subtitleFor(2)}
+                  status={statusFor(2)}
+                  isLast
+                />
+              </View>
+            </>
+          )}
         </View>
       </GlassCard>
 
@@ -425,6 +440,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: 'rgba(0,0,0,0.5)',
     marginTop: 2,
+  },
+  reassigningRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: '#FAFAFA',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.08)',
+  },
+  reassigningText: {
+    flex: 1,
+    fontSize: 12,
+    color: 'rgba(0,0,0,0.6)',
+    lineHeight: 17,
   },
   riderCard: {
     flexDirection: 'row',

@@ -7,7 +7,7 @@ import CancelOrderModal from '@/features/orders/components/CancelOrderModal';
 import { useCancelOrders, useOrder, useOrders } from '@/features/orders/hooks';
 import { isPaid, outcomeNotice } from '@/features/orders/payment';
 import { usePaystackCheckout } from '@/features/orders/usePaystackCheckout';
-import { hasRider } from '@/features/orders/status';
+import { customerStatusLabel, hasRider } from '@/features/orders/status';
 import { errorMessage } from '@/lib/api/client';
 
 export default function FindingRider() {
@@ -82,13 +82,15 @@ export default function FindingRider() {
           </Animated.View>
         </View>
 
-        <Text style={styles.title}>{unpaidIds.length > 0 ? 'Waiting for payment' : 'Finding your rider...'}</Text>
+        <Text style={styles.title}>
+          {unpaidIds.length > 0 ? 'Waiting for payment' : status ? customerStatusLabel(status).label : 'Finding rider'}
+        </Text>
         <Text style={styles.subtitle}>
           {unpaidIds.length > 0
             ? 'Pay with Paystack and we will match you with the nearest available rider.'
-            : data?.order.paymentMethod === 'paystack'
-              ? "We're matching you with the nearest available rider. Your payment is held until delivery."
-              : "We're matching you with the nearest available rider. Pay the rider in cash on delivery."}
+            : status
+              ? customerStatusLabel(status).detail
+              : 'Usually under 2 minutes.'}
         </Text>
 
         {unpaidIds.length > 0 && (
