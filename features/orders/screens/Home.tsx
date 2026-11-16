@@ -3,15 +3,17 @@ import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { fromGeoPoint } from '@/lib/geo';
+import { displayMoney } from '@/lib/money';
 import { useAreas } from '@/features/catalog/hooks';
 import { styles } from '@/features/orders/screens/homeStyles';
 import type { PaymentMethod } from '@/lib/api/types';
 import AmountStep from '@/features/orders/home/AmountStep';
+import CheckoutStep from '@/features/orders/home/CheckoutStep';
 import HomeMap from '@/features/orders/home/HomeMap';
 import LocationSearch from '@/features/orders/home/LocationSearch';
 import SelectStep from '@/features/orders/home/SelectStep';
 import StationsStep from '@/features/orders/home/StationsStep';
-import type { HomeStep } from '@/features/orders/home/constants';
+import { RUBBER_CHANGE_FEE, type HomeStep } from '@/features/orders/home/constants';
 import { glide } from '@/features/orders/home/glide';
 import { useHomeLocation } from '@/features/orders/home/useHomeLocation';
 import { useNearbyStations } from '@/features/orders/home/useNearbyStations';
@@ -23,10 +25,11 @@ export default function Home() {
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState<HomeStep>('select');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
+  const [rubberChangeRequested, setRubberChangeRequested] = useState(false);
 
   const location = useHomeLocation();
   const nearby = useNearbyStations(location.userLocation);
-  const draft = useOrderDraft(location.userLocation, step === 'amount');
+  const draft = useOrderDraft(location.userLocation, step === 'amount' || step === 'checkout');
   const submission = useOrderSubmission();
   const areasQuery = useAreas();
 
@@ -44,9 +47,10 @@ export default function Home() {
 
   const { amountUnits } = draft;
   useEffect(() => {
-    // If the user removes every remaining cylinder while on the amount step,
-    // there's nothing left to confirm — bounce back to the home/select screen.
-    if (step === 'amount' && amountUnits.length === 0) {
+    // If the user removes every remaining cylinder while on the amount or
+    // checkout step, there's nothing left to confirm — bounce back to the
+    // home/select screen.
+    if ((step === 'amount' || step === 'checkout') && amountUnits.length === 0) {
       glide();
       setStep('select');
     }
@@ -69,7 +73,7 @@ export default function Home() {
     goToStep('amount');
   };
 
-  const handleConfirmAmount = () => {
+  const handleConfirmCheckout = () => {
     if (!draft.totals) return;
     return submission.submit({
       groups: draft.groups,
@@ -77,8 +81,12 @@ export default function Home() {
       address: location.currentLocation,
       point: location.userLocation,
       pickupTime: schedule.pickupTime(),
+      riderInstructions: rubberChangeRequested
+        ? `Customer requested a cylinder rubber (gasket) change. Collect ${displayMoney(RUBBER_CHANGE_FEE, draft.currency)} in cash for it.`
+        : undefined,
       onDone: () => {
         draft.reset();
+        setRubberChangeRequested(false);
         setStep('select');
       },
     });
@@ -117,19 +125,32 @@ export default function Home() {
           <StationsStep
             stations={nearby.stations}
             selectedStation={nearby.selectedStation}
+            isLoading={nearby.isLoading}
+            isError={nearby.isError}
             onSelect={nearby.setSelectedStation}
             onBack={() => goToStep('select')}
             onContinue={handleConfirmStation}
+            onRetry={() => nearby.refetch()}
           />
         )}
         {step === 'amount' && (
           <AmountStep
             draft={draft}
+            rubberChangeRequested={rubberChangeRequested}
+            onToggleRubberChange={() => setRubberChangeRequested((prev) => !prev)}
+            onBack={() => goToStep('stations')}
+            onContinue={() => goToStep('checkout')}
+          />
+        )}
+        {step === 'checkout' && (
+          <CheckoutStep
+            draft={draft}
+            rubberChangeRequested={rubberChangeRequested}
             paymentMethod={paymentMethod}
             onPaymentMethodChange={setPaymentMethod}
             submitting={submission.isSubmitting}
-            onBack={() => goToStep('stations')}
-            onConfirm={handleConfirmAmount}
+            onBack={() => goToStep('amount')}
+            onConfirm={handleConfirmCheckout}
           />
         )}
       </View>

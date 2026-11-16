@@ -14,7 +14,7 @@ export type RootStackParamList = {
   ContactUs: undefined;
   SetPassword: undefined;
   Account: undefined;
-  AddContact: { channel: 'email' | 'phone'; required?: boolean };
+  AddContact: { channel: 'email' | 'phone' };
   FindingRider: { orderIds: string[] };
   Tracker: { orderId: string; orderIds?: string[] };
 };

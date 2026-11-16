@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getQuote } from '@/features/catalog/api';
 import type { Order, Payment, PaymentMethod, Quote, RiderLocation } from '@/lib/api/types';
+import { cleanStationName } from '@/lib/stationName';
 import { cancelOrder, createOrder, getOrder, listOrders, rateOrder, type CreateOrderInput } from './api';
 import { amountFields, type PlanGroup } from './orderPlan';
 import { isActive } from './status';
@@ -45,6 +46,7 @@ export interface PlaceOrdersInput {
   deliveryAddress: CreateOrderInput['deliveryAddress'];
   pickupTime: string;
   paymentMethod: PaymentMethod;
+  riderInstructions?: string;
 }
 
 // Places one order per group, one after another. Stops at the first failure and
@@ -62,7 +64,7 @@ export class PartialOrderError extends Error {
 export function usePlaceOrders() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: async ({ groups, deliveryAddress, pickupTime, paymentMethod }: PlaceOrdersInput) => {
+    mutationFn: async ({ groups, deliveryAddress, pickupTime, paymentMethod, riderInstructions }: PlaceOrdersInput) => {
       const placed: Order[] = [];
       for (const g of groups) {
         try {
@@ -73,6 +75,7 @@ export function usePlaceOrders() {
             deliveryAddress,
             pickupTime,
             paymentMethod,
+            riderInstructions,
           });
           placed.push(order);
         } catch (error) {
@@ -144,7 +147,7 @@ export function useGroupQuotes(
       serviceFee: all.reduce((s, q) => s + q.pricing.serviceFee, 0),
       total: all.reduce((s, q) => s + q.pricing.total, 0),
       currency: all[0].pricing.currency,
-      stationName: all[0].station.name,
+      stationName: cleanStationName(all[0].station.name),
     };
   }
   return { quotes, totals, error, isLoading };

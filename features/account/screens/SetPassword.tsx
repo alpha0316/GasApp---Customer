@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PrimaryButton from '@/components/PrimaryButton';
 import BackButton from '@/components/BackButton';
 import { setPassword } from '@/features/auth/api';
@@ -11,6 +12,7 @@ const MAX_LENGTH = 128;
 
 export default function SetPassword() {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -35,7 +37,7 @@ export default function SetPassword() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <BackButton />
       </View>
 
@@ -94,7 +96,7 @@ export default function SetPassword() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: 'white' },
-  header: { flexDirection: 'row', alignItems: 'center', marginVertical: 16 },
+  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
   body: { marginTop: 32, gap: 12 },
   title: { fontSize: 24, fontWeight: '700' },
   subtitle: { fontSize: 16, color: 'rgba(0,0,0,0.6)' },

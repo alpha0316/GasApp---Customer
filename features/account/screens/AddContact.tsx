@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PrimaryButton from '@/components/PrimaryButton';
 import BackButton from '@/components/BackButton';
 import { addContact, requestOtp } from '@/features/auth/api';
@@ -13,13 +14,11 @@ import type { RootStackParamList } from '@/types/navigation';
 type Params = RootStackParamList['AddContact'];
 
 // Adds an email or phone number to the signed-in account: enter it, then confirm with a code.
-// When `required` is set (sign-up gate) there is no back button; the navigator moves on once
-// the account has an email.
 export default function AddContact() {
   const navigation = useNavigation();
-  const { channel, required = false } = useRoute().params as Params;
+  const insets = useSafeAreaInsets();
+  const { channel } = useRoute().params as Params;
   const setUser = useAuthStore((s) => s.setUser);
-  const signOut = useAuthStore((s) => s.signOut);
   const [target, setTarget] = useState('');
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [code, setCode] = useState('');
@@ -47,7 +46,7 @@ export default function AddContact() {
     setBusy(true);
     try {
       setUser(await addContact(apiChannel, sentTo, code));
-      if (!required) navigation.goBack();
+      navigation.goBack();
     } catch (error) {
       Alert.alert('Could not verify the code', errorMessage(error));
     } finally {
@@ -57,7 +56,9 @@ export default function AddContact() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>{required ? null : <BackButton />}</View>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+        <BackButton />
+      </View>
 
       <View style={styles.body}>
         <Text style={styles.title}>{isEmail ? 'Add your email' : 'Add your phone number'}</Text>
@@ -71,8 +72,9 @@ export default function AddContact() {
 
         {sentTo ? (
           <>
-            <OtpCodeInput target={sentTo} onChange={setCode} onResend={() => requestOtp(apiChannel, sentTo)} />
-            <PrimaryButton title={busy ? 'Verifying...' : 'Verify'} disabled={code === '' || busy} onPress={handleVerify} />
+            <OtpCodeInput target={sentTo} onChange={setCode} onResend={() => requestOtp(apiChannel, sentTo)}>
+              <PrimaryButton title={busy ? 'Verifying...' : 'Verify'} disabled={code === '' || busy} onPress={handleVerify} />
+            </OtpCodeInput>
             <TouchableOpacity onPress={() => setSentTo(null)} accessibilityRole="button" style={styles.link}>
               <Text style={styles.linkText}>{isEmail ? 'Use a different email' : 'Use a different number'}</Text>
             </TouchableOpacity>
@@ -96,12 +98,6 @@ export default function AddContact() {
             <PrimaryButton title={busy ? 'Sending...' : 'Send code'} disabled={!valid || busy} onPress={handleSend} />
           </>
         )}
-
-        {required ? (
-          <TouchableOpacity onPress={signOut} accessibilityRole="button" style={styles.link}>
-            <Text style={styles.linkText}>Use a different account</Text>
-          </TouchableOpacity>
-        ) : null}
       </View>
     </View>
   );
@@ -109,7 +105,7 @@ export default function AddContact() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: 'white' },
-  header: { marginVertical: 16, minHeight: 40 },
+  header: { marginBottom: 16, minHeight: 40 },
   body: { gap: 12 },
   title: { fontSize: 24, fontWeight: '700' },
   subtitle: { fontSize: 16, color: 'rgba(0,0,0,0.6)', marginBottom: 12 },

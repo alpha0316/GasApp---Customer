@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PrimaryButton from '@/components/PrimaryButton';
 import BackButton from '@/components/BackButton';
 import { requestOtp } from '@/features/auth/api';
@@ -8,6 +9,7 @@ import { errorMessage } from '@/lib/api/client';
 
 const PhoneNumber = () => {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
 
   const [phoneNumber, setPhoneNumber] = useState('');
   const [sending, setSending] = useState(false);
@@ -29,7 +31,7 @@ const PhoneNumber = () => {
 
   return (
     <View style={styles.container}>
-       <View style={styles.header}>
+       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <BackButton />
       </View>
 
@@ -102,7 +104,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 16,
+    marginBottom: 16,
     gap: '110%',
   },
   headerTitle: {

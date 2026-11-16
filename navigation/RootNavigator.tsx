@@ -16,7 +16,7 @@ import ContactUs from '@/features/account/screens/ContactUs';
 import SetPassword from '@/features/account/screens/SetPassword';
 import Account from '@/features/account/screens/Account';
 import AddContact from '@/features/account/screens/AddContact';
-import { selectNeedsEmail, selectNeedsName, useAuthStore } from '@/features/auth/authStore';
+import { selectNeedsName, useAuthStore } from '@/features/auth/authStore';
 import { useRealtime } from '@/features/notifications/useRealtime';
 import type { RootStackParamList } from '@/types/navigation';
 
@@ -29,7 +29,6 @@ export default function RootNavigator() {
   const status = useAuthStore((s) => s.status);
   const splashDone = useAuthStore((s) => s.splashDone);
   const needsName = useAuthStore(selectNeedsName);
-  const needsEmail = useAuthStore(selectNeedsEmail);
   useRealtime();
 
   if (status === 'loading' || (status === 'signedIn' && !splashDone)) {
@@ -52,24 +51,12 @@ export default function RootNavigator() {
     );
   }
 
-  // Sign-up gate: a name first, then a verified email.
+  // Sign-up gate: a name is required before the app is usable; email is collected
+  // on the same screen but optional, so it never blocks sign-up.
   if (needsName) {
     return (
       <Stack.Navigator initialRouteName="CompleteProfile">
         <Stack.Screen name="CompleteProfile" component={CompleteProfile} options={noHeader} />
-      </Stack.Navigator>
-    );
-  }
-
-  if (needsEmail) {
-    return (
-      <Stack.Navigator initialRouteName="AddContact">
-        <Stack.Screen
-          name="AddContact"
-          component={AddContact}
-          initialParams={{ channel: 'email', required: true }}
-          options={noHeader}
-        />
       </Stack.Navigator>
     );
   }

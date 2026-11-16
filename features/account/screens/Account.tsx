@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PrimaryButton from '@/components/PrimaryButton';
 import BackButton from '@/components/BackButton';
 import { useAuthStore } from '@/features/auth/authStore';
@@ -9,6 +10,7 @@ import { errorMessage } from '@/lib/api/client';
 // Profile view: edit the name, add a missing phone number, set a password, sign out.
 export default function Account() {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
   const saveProfile = useAuthStore((s) => s.saveProfile);
   const signOut = useAuthStore((s) => s.signOut);
@@ -32,7 +34,7 @@ export default function Account() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <BackButton />
       </View>
 
@@ -75,7 +77,7 @@ export default function Account() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: 'white' },
-  header: { marginVertical: 16 },
+  header: { marginBottom: 16 },
   body: { gap: 12 },
   title: { fontSize: 24, fontWeight: '700', marginBottom: 8 },
   label: { fontSize: 14, fontWeight: '600', marginTop: 8 },

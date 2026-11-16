@@ -27,6 +27,7 @@ import { LockKey, Phone } from 'phosphor-react-native';
 import { GOOGLE_G_XML, EMAIL_DARK_XML } from '@/components/icons/BrandIcons';
 import { useAuthStore } from '@/features/auth/authStore';
 import { errorMessage } from '@/lib/api/client';
+import { GOOGLE_SIGNIN_ENABLED } from '@/lib/config';
 import { primeLocation } from '@/lib/locationStore';
 import type { RootStackParamList } from '@/types/navigation';
 
@@ -203,14 +204,16 @@ function AuthContent({
           <Text style={[styles.authButtonText, styles.authButtonTextPrimary]}>Continue With Phone Number</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.authButton, styles.authButtonSecondary]} onPress={onGoogle} disabled={googleLoading}>
-          {googleLoading ? (
-            <ActivityIndicator size="small" color="#007AFF" />
-          ) : (
-            <SvgXml xml={GOOGLE_G_XML} width={22} height={22} />
-          )}
-          <Text style={[styles.authButtonText, styles.authButtonTextSecondary]}>Continue with Google</Text>
-        </TouchableOpacity>
+        {GOOGLE_SIGNIN_ENABLED && (
+          <TouchableOpacity style={[styles.authButton, styles.authButtonSecondary]} onPress={onGoogle} disabled={googleLoading}>
+            {googleLoading ? (
+              <ActivityIndicator size="small" color="#007AFF" />
+            ) : (
+              <SvgXml xml={GOOGLE_G_XML} width={22} height={22} />
+            )}
+            <Text style={[styles.authButtonText, styles.authButtonTextSecondary]}>Continue with Google</Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
           style={[styles.authButton, styles.authButtonSecondary]}

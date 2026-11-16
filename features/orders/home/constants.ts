@@ -16,12 +16,57 @@ export const STATION_LOGOS: { match: RegExp; logo: number }[] = [
   { match: /goil/i, logo: require('@/assets/Goil.png') },
   { match: /shell/i, logo: require('@/assets/Shell.png') },
   { match: /total/i, logo: require('@/assets/stations/totalenergies.png') },
+  { match: /allied/i, logo: require('@/assets/stations/allied-icon.png') },
+  { match: /engen/i, logo: require('@/assets/stations/engen.png') },
+  { match: /star\s*oil/i, logo: require('@/assets/stations/staroil.png') },
+  { match: /zen/i, logo: require('@/assets/stations/zen.png') },
 ];
-export const MAX_STATIONS_SHOWN = 5;
+export const MAX_STATIONS_SHOWN = 3;
+
+// Mirrors the webapp's station picker (WebApp-1/src/screens/Home.tsx): stations within
+// this extra radius of the closest one are treated as equally close (free) rather than
+// charged a few cedis apart just because they're a handful of metres further.
+export const STATION_FREE_RADIUS_KM = 0.5;
+// Beyond the free radius, price in coarse bands instead of linearly per km, so nearby
+// distances don't produce noisy near-identical fees.
+const STATION_FEE_TIERS: { maxExtraKm: number; fee: number }[] = [
+  { maxExtraKm: 0, fee: 0 },
+  { maxExtraKm: 1, fee: 10 },
+  { maxExtraKm: 2, fee: 20 },
+  { maxExtraKm: Infinity, fee: 30 },
+];
+
+// A display-only estimate (major GHS units) for comparing stations before an order is
+// placed. The real, binding price still only ever comes from POST /pricing/quote.
+export function stationFee(distanceKm: number, closestDistanceKm: number): number {
+  const extraKm = Math.max(0, distanceKm - closestDistanceKm - STATION_FREE_RADIUS_KM);
+  return (STATION_FEE_TIERS.find((t) => extraKm <= t.maxExtraKm) ?? STATION_FEE_TIERS[STATION_FEE_TIERS.length - 1])
+    .fee;
+}
+
+// Assumed average city driving speed used only to estimate drive time when the backend
+// routing service is unavailable (e.g. routing off, or the route request failed) — a
+// rough stand-in so the picker still shows a time instead of nothing.
+const FALLBACK_AVG_SPEED_KMH = 30;
+export const estimateDriveMinutes = (distanceKm: number) => (distanceKm / FALLBACK_AVG_SPEED_KMH) * 60;
+
+// "3 min away", "1 hr away", "1 hr 20 min away".
+export function formatDriveDuration(minutes: number): string {
+  const totalMinutes = Math.max(1, Math.round(minutes));
+  const hours = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+  if (hours === 0) return `${mins} min away`;
+  if (mins === 0) return `${hours} hr away`;
+  return `${hours} hr ${mins} min away`;
+}
 
 export const PLACEHOLDER_ADDRESSES = ['Locating…', 'Location permission denied'];
 
-export type HomeStep = 'select' | 'stations' | 'amount' | 'location';
+export type HomeStep = 'select' | 'stations' | 'amount' | 'checkout' | 'location';
+
+// Flat fee (pesewas) for a rubber (gasket) swap, collected by the rider in cash on
+// delivery since it isn't part of the backend's order pricing.
+export const RUBBER_CHANGE_FEE = 2000;
 
 export const formatTimeOfDay = (hour: number, minute: number) => {
   const period = hour < 12 ? 'AM' : 'PM';

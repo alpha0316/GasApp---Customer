@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Share, Alert, ActivityIndicator } from 'react-native';
 import { useRoute } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   CaretRight,
   Key,
@@ -82,6 +83,7 @@ export default function OrderDetails() {
 }
 
 function OrderDetailsContent({ order }: { order: OrderItem }) {
+  const insets = useSafeAreaInsets();
   const [ratingVisible, setRatingVisible] = useState(false);
   const rateOrder = useRateOrder(order.id);
 
@@ -122,7 +124,7 @@ function OrderDetailsContent({ order }: { order: OrderItem }) {
 
   return (
     <View style={styles.main}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <BackButton />
         <Text style={styles.headerTitle}>Order Details</Text>
         <TouchableOpacity style={styles.headerIconButton} onPress={handleShareReceipt}>
@@ -202,6 +204,7 @@ function OrderDetailsContent({ order }: { order: OrderItem }) {
           <Row label="Delivery Address" value={order.address} />
           <Row label="Pickup Time" value={order.pickupTime} />
           <Row label="Payment Method" value={order.paymentMethod === 'cash' ? 'Cash on delivery' : 'Paystack'} />
+          {!!order.riderInstructions && <Row label="Special Request" value={order.riderInstructions} />}
           <Row label="Amount" value={money} bold />
         </View>
 
@@ -265,7 +268,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     paddingHorizontal: 16,
-    paddingTop: 24,
     paddingBottom: 12,
     backgroundColor: '#fff',
   },

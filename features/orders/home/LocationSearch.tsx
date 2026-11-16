@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Keyboard, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SvgXml } from 'react-native-svg';
 import { CaretRight, MapPin, NavigationArrow, X } from 'phosphor-react-native';
 import { styles } from '@/features/orders/screens/homeStyles';
@@ -21,11 +22,12 @@ interface Props {
 
 export default function LocationSearch({ currentLocation, presets, onClose, onUseCurrent, onSelectPreset }: Props) {
   const [query, setQuery] = useState('');
+  const insets = useSafeAreaInsets();
   const trimmed = query.trim();
   const filtered = presets.filter((loc) => loc.name.toLowerCase().includes(trimmed.toLowerCase()));
 
   return (
-    <View style={styles.locationSearchOverlay}>
+    <View style={[styles.locationSearchOverlay, { paddingTop: insets.top + 20 }]}>
       <View style={styles.locationSearchHeader}>
         <View style={styles.locationPin}>
           <SvgXml xml={LOCATION_PIN_ICON_XML} width={16} height={16} />

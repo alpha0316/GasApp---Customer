@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, Alert } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PrimaryButton from '@/components/PrimaryButton';
 import BackButton from '@/components/BackButton';
 import { useAuthStore } from '@/features/auth/authStore';
@@ -7,6 +8,7 @@ import { errorMessage } from '@/lib/api/client';
 
 // The navigator swaps to the signed-in screens once the session exists.
 export default function PasswordSignIn() {
+  const insets = useSafeAreaInsets();
   const signInWithPassword = useAuthStore((s) => s.signInWithPassword);
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -26,7 +28,7 @@ export default function PasswordSignIn() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <BackButton />
       </View>
 
@@ -73,7 +75,7 @@ export default function PasswordSignIn() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: 'white' },
-  header: { flexDirection: 'row', alignItems: 'center', marginVertical: 16 },
+  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
   body: { marginTop: 64, gap: 12 },
   title: { fontSize: 24, fontWeight: '700' },
   subtitle: { fontSize: 16, color: 'rgba(0,0,0,0.6)' },

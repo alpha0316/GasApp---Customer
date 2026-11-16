@@ -15,6 +15,7 @@ interface SubmitInput {
   address: string;
   point: { latitude: number; longitude: number };
   pickupTime: string;
+  riderInstructions?: string;
   onDone: () => void;
 }
 
@@ -41,7 +42,7 @@ export function useOrderSubmission() {
     }
   };
 
-  const submit = async ({ groups, paymentMethod, address, point, pickupTime, onDone }: SubmitInput) => {
+  const submit = async ({ groups, paymentMethod, address, point, pickupTime, riderInstructions, onDone }: SubmitInput) => {
     if (paymentMethod === 'paystack' && !email) {
       Alert.alert('Email needed', 'Paystack needs an email address on your account. Pay with cash or add an email.', [
         { text: 'Cancel', style: 'cancel' },
@@ -56,6 +57,7 @@ export function useOrderSubmission() {
         deliveryAddress: { label: label.slice(0, 200), lat: point.latitude, lng: point.longitude },
         pickupTime,
         paymentMethod,
+        riderInstructions,
       });
       if (paymentMethod === 'paystack') await payAll(orders);
       onDone();

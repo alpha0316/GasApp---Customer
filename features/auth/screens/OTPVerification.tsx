@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, Alert, StyleSheet } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PrimaryButton from '@/components/PrimaryButton';
 import BackButton from '@/components/BackButton';
 import { requestOtp } from '@/features/auth/api';
@@ -11,6 +12,7 @@ import { errorMessage } from '@/lib/api/client';
 const OTPVerification = () => {
   const navigation = useNavigation();
   const route = useRoute();
+  const insets = useSafeAreaInsets();
   const signInWithOtp = useAuthStore((s) => s.signInWithOtp);
   const [code, setCode] = useState('');
   const [verifying, setVerifying] = useState(false);
@@ -30,20 +32,17 @@ const OTPVerification = () => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.backButtonWrapper}>
-          <BackButton onPress={() => navigation.goBack()} />
-        </View>
-        <Text style={styles.headerTitle}>OTP Verification</Text>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+        <BackButton onPress={() => navigation.goBack()} />
       </View>
       <Text style={styles.label}>Enter OTP Code</Text>
       <Text style={styles.subtitle}>
         Enter the verification code we just sent to {channel === 'email' ? 'your email' : 'your mobile number'}.
       </Text>
 
-      <OtpCodeInput target={target} onChange={setCode} onResend={() => requestOtp(apiChannel, target)} />
-
-      <PrimaryButton title={verifying ? 'Verifying...' : 'Verify'} disabled={code === '' || verifying} onPress={handleVerifyOTP} />
+      <OtpCodeInput target={target} onChange={setCode} onResend={() => requestOtp(apiChannel, target)}>
+        <PrimaryButton title={verifying ? 'Verifying...' : 'Verify'} disabled={code === '' || verifying} onPress={handleVerifyOTP} />
+      </OtpCodeInput>
     </View>
   );
 };
@@ -67,19 +66,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 16,
-    position: 'relative',
-  },
-  backButtonWrapper: {
-    position: 'absolute',
-    left: 0,
-    zIndex: 1,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    textAlign: 'center',
+    marginBottom: 16,
   },
 });
 

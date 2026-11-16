@@ -12,10 +12,13 @@ interface Props {
   onResend: () => Promise<void>;
   // Shown in the "new code sent" alert.
   target: string;
+  // Rendered between the code boxes and the resend row, e.g. the Verify button,
+  // so it sits within easy thumb reach instead of below the resend timer.
+  children?: React.ReactNode;
 }
 
 // Six code boxes plus the resend timer, shared by every screen that verifies an OTP.
-export default function OtpCodeInput({ onChange, onResend, target }: Props) {
+export default function OtpCodeInput({ onChange, onResend, target, children }: Props) {
   const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(''));
   const [secondsLeft, setSecondsLeft] = useState(RESEND_SECONDS);
   const inputsRef = useRef<(TextInput | null)[]>([]);
@@ -76,6 +79,8 @@ export default function OtpCodeInput({ onChange, onResend, target }: Props) {
           />
         ))}
       </View>
+
+      {children}
 
       <View style={styles.resendContainer}>
         <Text style={styles.resendText}>Didn’t receive a code? </Text>

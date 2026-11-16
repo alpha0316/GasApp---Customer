@@ -2,26 +2,22 @@ import React from 'react';
 import { Image, InputAccessoryView, Keyboard, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { ArrowLeft, Check, X } from 'phosphor-react-native';
 import GlassCard from '@/components/GlassCard';
-import { errorMessage } from '@/lib/api/client';
 import { displayMoney } from '@/lib/money';
-import type { PaymentMethod } from '@/lib/api/types';
 import { styles } from '@/features/orders/screens/homeStyles';
-import { AMOUNT_INPUT_ACCESSORY_ID } from './constants';
-import PaymentMethodPicker from './PaymentMethodPicker';
+import { AMOUNT_INPUT_ACCESSORY_ID, RUBBER_CHANGE_FEE } from './constants';
 import type { OrderDraft } from './useOrderDraft';
 
 interface Props {
   draft: OrderDraft;
-  paymentMethod: PaymentMethod;
-  onPaymentMethodChange: (method: PaymentMethod) => void;
-  submitting: boolean;
+  rubberChangeRequested: boolean;
+  onToggleRubberChange: () => void;
   onBack: () => void;
-  onConfirm: () => void;
+  onContinue: () => void;
 }
 
-export default function AmountStep({ draft, paymentMethod, onPaymentMethodChange, submitting, onBack, onConfirm }: Props) {
-  const { amountUnits, totals, quote, quoteIsCurrent, currency, minFillMajor, fullFillFlags, fillAmounts } = draft;
-  const confirmDisabled = amountUnits.length === 0 || !totals || !quoteIsCurrent || quote.isLoading || submitting;
+export default function AmountStep({ draft, rubberChangeRequested, onToggleRubberChange, onBack, onContinue }: Props) {
+  const { amountUnits, totals, currency, minFillMajor, fullFillFlags, fillAmounts } = draft;
+  const continueDisabled = amountUnits.length === 0;
 
   return (
     <>
@@ -72,48 +68,36 @@ export default function AmountStep({ draft, paymentMethod, onPaymentMethodChange
 
           <Text style={styles.minFillNote}>Min fill amount: GH {minFillMajor}</Text>
 
-          <View style={styles.costSummaryBox}>
-            <Text style={styles.costSummaryTitle}>Cost Summary</Text>
-            {amountUnits.map((u, index) => (
-              <View key={`cost-${u.key}-${index}`} style={styles.costRow}>
-                <Text style={styles.costRowLabel}>
-                  {u.title}
-                  {u.countForKey > 1 ? ` #${u.unitNumber}` : ''}
-                </Text>
-                <Text style={styles.costRowValue}>{draft.unitGasText(index)}</Text>
-              </View>
-            ))}
-            {totals && (
-              <>
-                <View style={styles.costRow}>
-                  <Text style={styles.costRowLabel}>Filling Station Fee</Text>
-                  <Text style={styles.costRowValue}>{displayMoney(totals.distanceFee, currency)}</Text>
-                </View>
-                <View style={styles.costRow}>
-                  <Text style={styles.costRowLabel}>Service Fee</Text>
-                  <Text style={styles.costRowValue}>{displayMoney(totals.serviceFee, currency)}</Text>
-                </View>
-              </>
-            )}
-            <View style={styles.costDivider} />
-            <View style={styles.costRow}>
-              <Text style={styles.costTotalLabel}>Total</Text>
-              <Text style={styles.costTotalValue}>{totals && quoteIsCurrent ? displayMoney(totals.total, currency) : '…'}</Text>
+          <TouchableOpacity
+            style={[styles.rubberChangeRow, rubberChangeRequested && styles.rubberChangeRowSelected]}
+            onPress={onToggleRubberChange}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: rubberChangeRequested }}
+            accessibilityLabel="Request cylinder rubber change"
+          >
+            <Image
+              source={require('@/assets/images/cylinderRubber.png')}
+              style={styles.rubberChangeImage}
+              resizeMode="contain"
+            />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rubberChangeTitle}>Request cylinder rubber change</Text>
+              <Text style={styles.rubberChangeSubtitle}>Your rider brings a replacement gasket and swaps it on delivery.</Text>
+              <Text style={styles.rubberChangeFee}>{displayMoney(RUBBER_CHANGE_FEE, currency)} </Text>
             </View>
-          </View>
-
-          {quote.error && <Text style={styles.noLocationMatches}>{errorMessage(quote.error)}</Text>}
-
-          <PaymentMethodPicker value={paymentMethod} onChange={onPaymentMethodChange} />
+            <View style={[styles.checkbox, rubberChangeRequested && styles.checkboxChecked]}>
+              {rubberChangeRequested && <Check size={10} color="#fff" weight="bold" />}
+            </View>
+          </TouchableOpacity>
         </ScrollView>
       </GlassCard>
 
       <TouchableOpacity
-        style={[styles.placeOrderButton, confirmDisabled && styles.placeOrderButtonDisabled]}
-        disabled={confirmDisabled}
-        onPress={onConfirm}
+        style={[styles.placeOrderButton, continueDisabled && styles.placeOrderButtonDisabled]}
+        disabled={continueDisabled}
+        onPress={onContinue}
       >
-        <Text style={styles.placeOrderText}>{submitting ? 'Placing…' : 'Confirm Order'}</Text>
+        <Text style={styles.placeOrderText}>Continue</Text>
       </TouchableOpacity>
 
       {Platform.OS === 'ios' && (

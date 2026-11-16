@@ -5,7 +5,7 @@ import type { PaymentMethod } from '@/lib/api/types';
 
 const OPTIONS: { value: PaymentMethod; label: string; note: string }[] = [
   { value: 'cash', label: 'Cash on delivery', note: 'Payment is collected in cash on delivery.' },
-  { value: 'paystack', label: 'Pay with Paystack', note: 'You pay with mobile money or card before a rider is assigned.' },
+  { value: 'paystack', label: 'Pay with Mobile Money', note: 'You pay with mobile money or card before a rider is assigned.' },
 ];
 
 interface Props {

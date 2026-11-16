@@ -1,4 +1,5 @@
 import type { CylinderSize, Order, OrderStatus, PaymentMethod, Station } from '@/lib/api/types';
+import { cleanStationName } from '@/lib/stationName';
 
 export interface OrderRider {
   firstName: string;
@@ -16,6 +17,7 @@ export interface OrderItem {
   address: string;
   pickupTime: string;
   paymentMethod: PaymentMethod;
+  riderInstructions: string;
   rider: OrderRider | null;
   createdAt: string;
   deliveredAt?: string;
@@ -47,10 +49,11 @@ export function toOrderItem(order: Order, stations: Station[]): OrderItem {
     size: order.cylinderSize,
     count: order.cylinderCount,
     status: order.status,
-    stationName: stations.find((s) => s.id === order.stationId)?.name ?? 'Filling Station',
+    stationName: cleanStationName(stations.find((s) => s.id === order.stationId)?.name ?? 'Filling Station'),
     address: order.deliveryAddress.label,
     pickupTime: pickupLabel(order),
     paymentMethod: order.paymentMethod,
+    riderInstructions: order.riderInstructions ?? '',
     rider: rider
       ? { firstName: rider.firstName, lastName: rider.lastName, phoneNumber: rider.phoneNumber ?? '' }
       : null,
