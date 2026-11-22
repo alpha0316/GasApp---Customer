@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { ArrowLeft, CheckCircle, GasPump } from 'phosphor-react-native';
 import GlassCard from '@/components/GlassCard';
 import { styles } from '@/features/orders/screens/homeStyles';
@@ -16,9 +16,21 @@ interface Props {
   onBack: () => void;
   onContinue: () => void;
   onRetry?: () => void;
+  // The server's base Delivery Fee (pesewas), charged as-is for the closest station.
+  baseDeliveryFee: number | null;
 }
 
-export default function StationsStep({ stations, selectedStation, isLoading, isError, onSelect, onBack, onContinue, onRetry }: Props) {
+export default function StationsStep({
+  stations,
+  selectedStation,
+  isLoading,
+  isError,
+  onSelect,
+  onBack,
+  onContinue,
+  onRetry,
+  baseDeliveryFee,
+}: Props) {
   return (
     <>
       <GlassCard style={[styles.card, styles.stationCard]}>
@@ -78,7 +90,15 @@ export default function StationsStep({ stations, selectedStation, isLoading, isE
                     )}
                   </View>
                 </View>
-                <Text style={styles.stationFee}>{displayMoney(s.estimatedFee * 100, 'GHS')}</Text>
+                {/* Closest: the base Delivery Fee. Farther: the same fee plus a distance surcharge. */}
+                <View style={localStyles.feeColumn}>
+                  <Text style={styles.stationFee}>
+                    {baseDeliveryFee !== null ? displayMoney(baseDeliveryFee + s.extraFee, 'GHS') : '…'}
+                  </Text>
+                  <Text style={[localStyles.feeNote, s.extraFee > 0 && localStyles.feeNoteExtra]}>
+                    {s.extraFee > 0 ? `+${displayMoney(s.extraFee, 'GHS')} distance` : 'Delivery fee'}
+                  </Text>
+                </View>
               </TouchableOpacity>
             );
           })}
@@ -100,3 +120,9 @@ export default function StationsStep({ stations, selectedStation, isLoading, isE
     </>
   );
 }
+
+const localStyles = StyleSheet.create({
+  feeColumn: { alignItems: 'flex-end', gap: 2 },
+  feeNote: { fontSize: 11, color: 'rgba(0,0,0,0.45)' },
+  feeNoteExtra: { color: '#C26A00', fontWeight: '600' },
+});

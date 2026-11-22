@@ -1,25 +1,39 @@
 import { useInfiniteQuery, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getQuote } from '@/features/catalog/api';
-import type { Order, Payment, PaymentMethod, Quote, RiderLocation } from '@/lib/api/types';
+import type { Order, Payment, PaymentMethod, Quote, RiderLocation, RiderQueue, Station } from '@/lib/api/types';
+import { DEMO_ORDER_ID, demoOrderDetail } from '@/features/tracking/demo';
 import { cleanStationName } from '@/lib/stationName';
 import { cancelOrder, createOrder, getOrder, listOrders, rateOrder, type CreateOrderInput } from './api';
 import { amountFields, type PlanGroup } from './orderPlan';
 import { isActive } from './status';
 
 export const ORDERS_KEY = ['orders'] as const;
-export const orderKey = (id: string) => [...ORDERS_KEY, 'detail', id] as const;
+// The demo order sits outside ORDERS_KEY so order refreshes (socket events, mutations)
+// never rebuild it in the middle of a demo.
+export const orderKey = (id: string): readonly string[] =>
+  id === DEMO_ORDER_ID ? ['demo-order'] : ([...ORDERS_KEY, 'detail', id] as const);
 
-export type OrderDetail = { order: Order; payment: Payment; riderLocation: RiderLocation | null };
+export type OrderDetail = {
+  order: Order;
+  payment: Payment;
+  riderLocation: RiderLocation | null;
+  riderQueue?: RiderQueue | null;
+};
 
 // The socket refreshes this on every event. The interval is the fallback when the socket is down.
 const POLL_MS = 30_000;
 
 export function useOrder(id: string | undefined) {
-  return useQuery({
+  const client = useQueryClient();
+  // The demo order is built on the device once; the demo tools then edit it in the cache.
+  const isDemo = id === DEMO_ORDER_ID;
+  return useQuery<OrderDetail>({
     queryKey: orderKey(id ?? ''),
-    queryFn: () => getOrder(id!),
+    queryFn: isDemo ? () => demoOrderDetail(client.getQueryData<Station[]>(['stations'])?.[0]) : () => getOrder(id!),
     enabled: !!id,
+    ...(isDemo ? { staleTime: Infinity, gcTime: Infinity } : {}),
     refetchInterval: (query) => {
+      if (isDemo) return false;
       const status = query.state.data?.order.status;
       return status && isActive(status) ? POLL_MS : false;
     },

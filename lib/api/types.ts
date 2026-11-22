@@ -144,6 +144,19 @@ export interface Payment {
   refundedAt?: string;
 }
 
+// Where this order sits in its rider's queue. Riders can hold several orders and work them
+// oldest first, so an order can be rider_assigned while the rider finishes an earlier one.
+// PROPOSED: the API does not send this yet (see docs/API_GAPS.md in the web app).
+export interface RiderQueue {
+  // Orders the rider must finish before starting this one. 0 = this order is up now.
+  ordersAhead: number;
+  // Rough time until the rider starts this order, when the server can estimate it.
+  startsInSeconds?: number | null;
+  // Rough drop-off point of the order the rider is on now (rounded, no customer details),
+  // so the map can draw that leg in grey.
+  currentStop?: { lat: number; lng: number } | null;
+}
+
 export interface RiderLocation {
   lat: number;
   lng: number;

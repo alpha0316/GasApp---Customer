@@ -6,6 +6,7 @@ import type {
   Payment,
   PaymentMethod,
   RiderLocation,
+  RiderQueue,
 } from '@/lib/api/types';
 
 export interface CreateOrderInput {
@@ -26,7 +27,9 @@ export const createOrder = (input: CreateOrderInput) =>
 export const listOrders = (page: number) => api<{ orders: Order[] } & Page>('/orders', { query: { page } });
 
 export const getOrder = (id: string) =>
-  api<{ order: Order; payment: Payment; riderLocation: RiderLocation | null }>(`/orders/${id}`);
+  api<{ order: Order; payment: Payment; riderLocation: RiderLocation | null; riderQueue?: RiderQueue | null }>(
+    `/orders/${id}`,
+  );
 
 export const cancelOrder = (id: string) =>
   api<{ order: Order }>(`/orders/${id}/cancel`, { method: 'POST' }).then((r) => r.order);

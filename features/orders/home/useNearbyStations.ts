@@ -4,7 +4,7 @@ import { ApiError } from '@/lib/api/client';
 import { useRoute } from '@/features/tracking/hooks';
 import { getRoute } from '@/features/tracking/api';
 import { haversineKm } from '@/lib/geo';
-import { estimateDriveMinutes, MAX_STATIONS_SHOWN, STATION_LOGOS, stationFee } from './constants';
+import { estimateDriveMinutes, MAX_STATIONS_SHOWN, STATION_LOGOS, stationExtraFee, stationFee } from './constants';
 import { fetchNearbyFuelStations } from './osmStations';
 
 interface Coords {
@@ -59,6 +59,8 @@ export function useNearbyStations(userLocation: Coords) {
         longitude: st.longitude,
         distanceKm,
         estimatedFee: stationFee(distanceKm, closestDistanceKm),
+        // Pesewas on top of the base Delivery Fee; 0 for the closest station.
+        extraFee: stationExtraFee(distanceKm, closestDistanceKm),
       };
     })
     .sort((a, b) => a.distanceKm - b.distanceKm)

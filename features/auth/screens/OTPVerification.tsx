@@ -19,11 +19,12 @@ const OTPVerification = () => {
   const { channel = 'phone', target = '' } = (route?.params as { channel?: string; target?: string }) || {};
   const apiChannel = channel === 'email' ? 'email' : 'sms';
 
-  const handleVerifyOTP = async () => {
+  const handleVerifyOTP = async (entered: string = code) => {
+    if (verifying) return;
     setVerifying(true);
     try {
       // On success the auth store swaps the navigator to Home (or to the profile step).
-      await signInWithOtp(apiChannel, target, code);
+      await signInWithOtp(apiChannel, target, entered);
     } catch (error) {
       Alert.alert('Could not verify the code', errorMessage(error));
       setVerifying(false);
@@ -40,8 +41,8 @@ const OTPVerification = () => {
         Enter the verification code we just sent to {channel === 'email' ? 'your email' : 'your mobile number'}.
       </Text>
 
-      <OtpCodeInput target={target} onChange={setCode} onResend={() => requestOtp(apiChannel, target)}>
-        <PrimaryButton title={verifying ? 'Verifying...' : 'Verify'} disabled={code === '' || verifying} onPress={handleVerifyOTP} />
+      <OtpCodeInput target={target} onChange={setCode} onComplete={handleVerifyOTP} onResend={() => requestOtp(apiChannel, target)}>
+        <PrimaryButton title={verifying ? 'Verifying...' : 'Verify'} disabled={code === '' || verifying} onPress={() => handleVerifyOTP()} />
       </OtpCodeInput>
     </View>
   );

@@ -44,6 +44,40 @@ export function stationFee(distanceKm: number, closestDistanceKm: number): numbe
     .fee;
 }
 
+// The Delivery Fee is the server's base fee for the closest station; choosing a farther one
+// adds this distance surcharge (pesewas). The server prices from the delivery point only, so
+// like the rubber change it is added on the device and paid to the rider in cash.
+export const stationExtraFee = (distanceKm: number, closestDistanceKm: number) =>
+  stationFee(distanceKm, closestDistanceKm) * 100;
+
+// Notes for the rider: which station the customer picked and any cash to collect on top.
+export function buildRiderInstructions({
+  stationName,
+  stationExtra,
+  rubberChange,
+  rubberFee,
+  formatMoney,
+}: {
+  stationName: string | null;
+  stationExtra: number;
+  rubberChange: boolean;
+  rubberFee: number;
+  formatMoney: (minor: number) => string;
+}): string | undefined {
+  const lines: string[] = [];
+  if (stationName) {
+    lines.push(
+      stationExtra > 0
+        ? `Customer chose ${stationName} (farther than the closest station). Collect ${formatMoney(stationExtra)} extra delivery in cash.`
+        : `Customer chose ${stationName}.`,
+    );
+  }
+  if (rubberChange) {
+    lines.push(`Customer requested a cylinder rubber (gasket) change. Collect ${formatMoney(rubberFee)} in cash for it.`);
+  }
+  return lines.length ? lines.join('\n') : undefined;
+}
+
 // Assumed average city driving speed used only to estimate drive time when the backend
 // routing service is unavailable (e.g. routing off, or the route request failed) — a
 // rough stand-in so the picker still shows a time instead of nothing.

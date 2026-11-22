@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
+import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
+import FillingPumpIcon from '@/components/icons/FillingPumpIcon';
 import Svg, { Defs, RadialGradient, Stop, Path, Circle, SvgXml } from 'react-native-svg';
 import { STATION_PUMP_ICON_XML } from '@/components/icons/BrandIcons';
 
@@ -8,14 +10,48 @@ import { STATION_PUMP_ICON_XML } from '@/components/icons/BrandIcons';
 // aspect ratio used there. The pump glyph is laid over the badge rather
 // than hand-copied as raw path data, since we don't have the original
 // `station-pin.svg` source to copy verbatim.
-export default function StationPinIcon({ size = 36, selected = false }: { size?: number; selected?: boolean }) {
+// `active`: the rider is at this station, so the pump fills and a halo pulses around the badge.
+export default function StationPinIcon({
+  size = 36,
+  selected = false,
+  active = false,
+}: {
+  size?: number;
+  selected?: boolean;
+  active?: boolean;
+}) {
   const width = selected ? size * (44 / 36) : size;
   const height = selected ? size * (56 / 36) : size * (46 / 36);
   const badgeHeight = height * (36 / 46);
   const iconSize = selected ? width * 0.52 : width * 0.5;
 
+  const pulse = useSharedValue(0);
+  useEffect(() => {
+    if (!active) {
+      cancelAnimation(pulse);
+      pulse.value = 0;
+      return;
+    }
+    pulse.value = withRepeat(withTiming(1, { duration: 1600, easing: Easing.out(Easing.ease) }), -1, false);
+    return () => cancelAnimation(pulse);
+  }, [active, pulse]);
+  const haloStyle = useAnimatedStyle(() => ({
+    opacity: 0.4 * (1 - pulse.value),
+    transform: [{ scale: 1 + pulse.value * 0.7 }],
+  }));
+
   return (
     <View style={{ width, height }}>
+      {active && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.halo,
+            { width: badgeHeight, height: badgeHeight, borderRadius: badgeHeight / 2, left: (width - badgeHeight) / 2 },
+            haloStyle,
+          ]}
+        />
+      )}
       <Svg width={width} height={height} viewBox="0 0 36 46">
         <Defs>
           <RadialGradient id="badgeGrad" cx="18" cy="18" r="17" gradientUnits="userSpaceOnUse">
@@ -31,13 +67,22 @@ export default function StationPinIcon({ size = 36, selected = false }: { size?:
       </Svg>
 
       <View style={[styles.iconOverlay, { width, height: badgeHeight }]} pointerEvents="none">
-        <SvgXml xml={STATION_PUMP_ICON_XML} width={iconSize} height={iconSize} />
+        {active ? (
+          <FillingPumpIcon animated size={iconSize} />
+        ) : (
+          <SvgXml xml={STATION_PUMP_ICON_XML} width={iconSize} height={iconSize} />
+        )}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  halo: {
+    position: 'absolute',
+    top: 0,
+    backgroundColor: '#0085FF',
+  },
   iconOverlay: {
     position: 'absolute',
     top: 0,

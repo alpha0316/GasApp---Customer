@@ -41,11 +41,11 @@ export default function AddContact() {
     }
   };
 
-  const handleVerify = async () => {
-    if (!sentTo) return;
+  const handleVerify = async (entered: string = code) => {
+    if (!sentTo || busy) return;
     setBusy(true);
     try {
-      setUser(await addContact(apiChannel, sentTo, code));
+      setUser(await addContact(apiChannel, sentTo, entered));
       navigation.goBack();
     } catch (error) {
       Alert.alert('Could not verify the code', errorMessage(error));
@@ -72,8 +72,8 @@ export default function AddContact() {
 
         {sentTo ? (
           <>
-            <OtpCodeInput target={sentTo} onChange={setCode} onResend={() => requestOtp(apiChannel, sentTo)}>
-              <PrimaryButton title={busy ? 'Verifying...' : 'Verify'} disabled={code === '' || busy} onPress={handleVerify} />
+            <OtpCodeInput target={sentTo} onChange={setCode} onComplete={handleVerify} onResend={() => requestOtp(apiChannel, sentTo)}>
+              <PrimaryButton title={busy ? 'Verifying...' : 'Verify'} disabled={code === '' || busy} onPress={() => handleVerify()} />
             </OtpCodeInput>
             <TouchableOpacity onPress={() => setSentTo(null)} accessibilityRole="button" style={styles.link}>
               <Text style={styles.linkText}>{isEmail ? 'Use a different email' : 'Use a different number'}</Text>

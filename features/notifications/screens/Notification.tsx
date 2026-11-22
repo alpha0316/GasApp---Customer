@@ -1,42 +1,50 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
-import { Bell, CheckCircle, GasPump, Package, Tag } from 'phosphor-react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Image } from 'react-native';
+import { Bell } from 'phosphor-react-native';
+import { eventStyle } from '@/features/trip/eventStyle';
+import { SvgXml } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { useTripStore, type TripInboxItem } from '@/features/trip/store';
 import AppMenuButton from '@/components/AppMenu';
 import { useMarkAllRead, useMarkRead, useNotifications } from '@/features/notifications/hooks';
 import { errorMessage } from '@/lib/api/client';
 import type { AppNotification } from '@/lib/api/types';
 
 const PRIMARY = '#007AFF';
-const PRIMARY_TINT = 'rgba(0,122,255,0.10)';
-const GREEN = '#52B922';
-
-type NotificationType = 'order' | 'rider' | 'delivered' | 'promo';
 
 interface NotificationItem {
   id: string;
-  type: NotificationType;
+  // The server's template key (e.g. "picked_up") or the app's trip event (e.g. "arriving_dropoff").
+  kind: string;
   title: string;
   message: string;
   createdAt: string;
   read: boolean;
-}
-
-// The API sends the template key as `type`; the row icon only needs a coarse kind.
-function kindOf(type: string): NotificationType {
-  if (type === 'delivered') return 'delivered';
-  if (['rider_assigned', 'picked_up', 'filling', 'en_route_to_customer'].includes(type)) return 'rider';
-  return 'order';
+  // Set for trip alerts the app saved on this device; tapping one opens the tracker.
+  tripOrderId?: string;
 }
 
 function toItem(n: AppNotification): NotificationItem {
   return {
     id: n.id,
-    type: kindOf(n.type),
+    kind: n.type,
     title: n.title,
     message: n.body,
     createdAt: n.createdAt,
     read: !!n.readAt,
+  };
+}
+
+function fromTrip(n: TripInboxItem): NotificationItem {
+  return {
+    id: n.id,
+    kind: n.event,
+    title: n.title,
+    message: n.body,
+    createdAt: n.createdAt,
+    read: n.read,
+    tripOrderId: n.orderId,
   };
 }
 
@@ -63,19 +71,24 @@ function formatTime(ts: number): string {
   return new Date(ts).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
-function iconFor(type: NotificationType) {
-  if (type === 'rider') return { Icon: GasPump, color: PRIMARY, bg: PRIMARY_TINT };
-  if (type === 'delivered') return { Icon: CheckCircle, color: GREEN, bg: 'rgba(82,185,34,0.10)' };
-  if (type === 'promo') return { Icon: Tag, color: '#B8860B', bg: 'rgba(184,134,11,0.10)' };
-  return { Icon: Package, color: PRIMARY, bg: PRIMARY_TINT };
+function iconFor(kind: string) {
+  const { Icon, color, xml, image } = eventStyle(kind);
+  // Same hue, faint, behind the glyph.
+  return { Icon, color, xml, image, bg: `${color}1A` };
 }
 
 function NotificationRow({ item, onRead }: { item: NotificationItem; onRead: () => void }) {
-  const { Icon, color, bg } = iconFor(item.type);
+  const { Icon, color, xml, image, bg } = iconFor(item.kind);
   return (
     <TouchableOpacity style={styles.row} onPress={onRead} activeOpacity={0.7}>
       <View style={[styles.rowIcon, { backgroundColor: bg }]}>
-        <Icon size={18} weight="fill" color={color} />
+        {image ? (
+          <Image source={image} style={{ width: 22, height: 22 }} resizeMode="contain" />
+        ) : xml ? (
+          <SvgXml xml={xml} width={22} height={22} />
+        ) : (
+          <Icon size={18} weight="fill" color={color} />
+        )}
       </View>
 
       <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
@@ -98,10 +111,16 @@ export default function Notification() {
   const query = useNotifications();
   const markReadMutation = useMarkRead();
   const markAllReadMutation = useMarkAllRead();
-  const items = useMemo(() => (query.data?.pages ?? []).flatMap((p) => p.notifications).map(toItem), [query.data]);
+  const navigation = useNavigation();
+  const tripInbox = useTripStore((s) => s.inbox);
+  const markTripRead = useTripStore((s) => s.markInboxRead);
+  const items = useMemo(
+    () => [...(query.data?.pages ?? []).flatMap((p) => p.notifications).map(toItem), ...tripInbox.map(fromTrip)],
+    [query.data, tripInbox],
+  );
 
   // The server counts across all pages; the first page carries the current total.
-  const unreadCount = query.data?.pages[0]?.unreadCount ?? 0;
+  const unreadCount = (query.data?.pages[0]?.unreadCount ?? 0) + tripInbox.filter((n) => !n.read).length;
 
   const groups = useMemo(() => {
     const sorted = [...items].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
@@ -115,9 +134,17 @@ export default function Notification() {
   }, [items]);
 
   const markRead = (item: NotificationItem) => {
-    if (!item.read) markReadMutation.mutate(item.id);
+    if (item.tripOrderId) {
+      markTripRead(item.id);
+      navigation.navigate('Tracker', { orderId: item.tripOrderId });
+    } else if (!item.read) {
+      markReadMutation.mutate(item.id);
+    }
   };
-  const markAllRead = () => markAllReadMutation.mutate();
+  const markAllRead = () => {
+    markTripRead();
+    if ((query.data?.pages[0]?.unreadCount ?? 0) > 0) markAllReadMutation.mutate();
+  };
 
   return (
     <View style={styles.main}>
@@ -138,9 +165,9 @@ export default function Notification() {
           </View>
         )}
 
-        {query.isPending ? (
+        {query.isPending && tripInbox.length === 0 ? (
           <ActivityIndicator accessibilityLabel="Loading notifications" />
-        ) : query.isError ? (
+        ) : query.isError && tripInbox.length === 0 ? (
           <TouchableOpacity style={styles.emptyState} onPress={() => query.refetch()} accessibilityRole="button">
             <Text style={styles.emptyStateText}>{errorMessage(query.error)} Tap to try again.</Text>
           </TouchableOpacity>
