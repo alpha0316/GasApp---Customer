@@ -1,4 +1,4 @@
-import type { OrderStatus } from '@/lib/api/types';
+import type { OrderStatus, RiderQueue } from '@/lib/api/types';
 
 export type StepState = 'completed' | 'active' | 'pending';
 
@@ -72,3 +72,32 @@ export function customerStatusLabel(status: OrderStatus): CustomerStatusLabel {
 // fell back to a searching status — the "assigned rider cancelled" case (doc scenario D).
 export const isReassigning = (status: OrderStatus) =>
   status === 'awaiting_rider' || status === 'pending_payment';
+
+export interface QueuedState {
+  ordersAhead: number;
+  label: string;
+  detail: string;
+  // One-line notice for the dismissible banner above the tracking card.
+  banner: string;
+  // "Starts in ~4 min", or null when the server gave no estimate.
+  startsIn: string | null;
+}
+
+// The rider accepted this order but is still finishing earlier ones in their queue.
+// Only rider_assigned qualifies: from picked_up on, the rider is working on this order.
+export function queuedState(status: OrderStatus, queue: RiderQueue | null | undefined): QueuedState | null {
+  if (status !== 'rider_assigned' || !queue || queue.ordersAhead < 1) return null;
+  const ahead = queue.ordersAhead;
+  const secs = queue.startsInSeconds;
+  const startsIn = typeof secs === 'number' && secs > 0 ? `Starts in ~${Math.max(1, Math.round(secs / 60))} min` : null;
+  return {
+    ordersAhead: ahead,
+    label: 'Finishing another order',
+    detail:
+      ahead === 1
+        ? "You're next. Your rider heads to the filling station right after."
+        : `${ahead} orders ahead of yours. Your rider will come to you after them.`,
+    banner: ahead === 1 ? 'Your rider is completing another delivery nearby' : `Your rider has ${ahead} deliveries before yours`,
+    startsIn,
+  };
+}

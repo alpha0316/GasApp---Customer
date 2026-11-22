@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { fromGeoPoint } from '@/lib/geo';
 import { displayMoney } from '@/lib/money';
-import { useAreas } from '@/features/catalog/hooks';
+import { useAreas, useSettings } from '@/features/catalog/hooks';
 import { styles } from '@/features/orders/screens/homeStyles';
 import type { PaymentMethod } from '@/lib/api/types';
 import AmountStep from '@/features/orders/home/AmountStep';
@@ -13,7 +13,7 @@ import HomeMap from '@/features/orders/home/HomeMap';
 import LocationSearch from '@/features/orders/home/LocationSearch';
 import SelectStep from '@/features/orders/home/SelectStep';
 import StationsStep from '@/features/orders/home/StationsStep';
-import { RUBBER_CHANGE_FEE, type HomeStep } from '@/features/orders/home/constants';
+import { buildRiderInstructions, RUBBER_CHANGE_FEE, type HomeStep } from '@/features/orders/home/constants';
 import { glide } from '@/features/orders/home/glide';
 import { useHomeLocation } from '@/features/orders/home/useHomeLocation';
 import { useNearbyStations } from '@/features/orders/home/useNearbyStations';
@@ -32,6 +32,10 @@ export default function Home() {
   const draft = useOrderDraft(location.userLocation, step === 'amount' || step === 'checkout');
   const submission = useOrderSubmission();
   const areasQuery = useAreas();
+  const settings = useSettings();
+  // The picked station's distance surcharge on top of the Delivery Fee (0 for the closest).
+  const chosenStation = nearby.stations.find((s) => s.key === nearby.selectedStation) ?? null;
+  const stationExtra = chosenStation?.extraFee ?? 0;
 
   const goToStep = (next: HomeStep) => {
     glide();
@@ -81,9 +85,13 @@ export default function Home() {
       address: location.currentLocation,
       point: location.userLocation,
       pickupTime: schedule.pickupTime(),
-      riderInstructions: rubberChangeRequested
-        ? `Customer requested a cylinder rubber (gasket) change. Collect ${displayMoney(RUBBER_CHANGE_FEE, draft.currency)} in cash for it.`
-        : undefined,
+      riderInstructions: buildRiderInstructions({
+        stationName: chosenStation?.name ?? null,
+        stationExtra,
+        rubberChange: rubberChangeRequested,
+        rubberFee: RUBBER_CHANGE_FEE,
+        formatMoney: (minor) => displayMoney(minor, draft.currency),
+      }),
       onDone: () => {
         draft.reset();
         setRubberChangeRequested(false);
@@ -131,6 +139,7 @@ export default function Home() {
             onBack={() => goToStep('select')}
             onContinue={handleConfirmStation}
             onRetry={() => nearby.refetch()}
+            baseDeliveryFee={settings.data?.serviceFee ?? null}
           />
         )}
         {step === 'amount' && (
@@ -146,6 +155,7 @@ export default function Home() {
           <CheckoutStep
             draft={draft}
             rubberChangeRequested={rubberChangeRequested}
+            stationExtraFee={stationExtra}
             paymentMethod={paymentMethod}
             onPaymentMethodChange={setPaymentMethod}
             submitting={submission.isSubmitting}

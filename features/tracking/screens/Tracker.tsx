@@ -1,18 +1,38 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Linking, ActivityIndicator } from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
+import { View, Text, TouchableOpacity, StyleSheet, Linking, ActivityIndicator, PanResponder, Pressable } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView, { Marker, Polyline, UrlTile } from 'react-native-maps';
 import Svg, { Path, SvgXml } from 'react-native-svg';
-import { STATION_PUMP_ICON_XML, LOCATION_MARKER_XML } from '@/components/icons/BrandIcons';
+import { LOCATION_MARKER_XML } from '@/components/icons/BrandIcons';
 import BikeRiderMarker from '@/features/tracking/components/BikeRiderMarker';
 import StationPinIcon from '@/components/StationPinIcon';
-import { House, Phone } from 'phosphor-react-native';
+import { FillingStatusBadge } from '@/components/icons/FillingPumpIcon';
+import { reportDeliveryIssue } from '@/features/orders/report';
+import { useAuthStore } from '@/features/auth/authStore';
+import Animated, { FadeIn, FadeInDown, FadeOut, FadeOutDown, LinearTransition } from 'react-native-reanimated';
+import { House, Phone, PathIcon, X, Hourglass, Clock, Play, Stop, ArrowCounterClockwise, NavigationArrow } from 'phosphor-react-native';
 import { MAP_TILE_URL } from '@/lib/mapTiles';
 import GlassCard from '@/components/GlassCard';
 import RatingSheet from '@/features/orders/components/RatingSheet';
 import { useOrder, useRateOrder } from '@/features/orders/hooks';
-import { customerStatusLabel, isReassigning, stepStates } from '@/features/orders/status';
+import { customerStatusLabel, isReassigning, queuedState, stepStates, type QueuedState } from '@/features/orders/status';
+import {
+  DEMO_MODE,
+  DEMO_ORDER_ID,
+  isDemoTripRunning,
+  nextDemoQueue,
+  resetDemoOrder,
+  setDemoQueue,
+  startDemoTrip,
+  stopDemoTrip,
+  type DemoQueue,
+} from '@/features/tracking/demo';
+import { useTripStore } from '@/features/trip/store';
+import { etaLead } from '@/features/trip/messages';
+import { formatEtaRange } from '@/features/trip/eta';
+import { CONDITION_TEXT } from '@/features/trip/conditions';
 import { useStations } from '@/features/catalog/hooks';
 import { useRoute as useRoadRoute, type LatLng } from '@/features/tracking/hooks';
 import { fromGeoPoint } from '@/lib/geo';
@@ -109,7 +129,8 @@ function StackedStep({
   );
 }
 
-function FillingStep({ status, isLast }: { status: Status; isLast: boolean }) {
+// `pumping`: the rider is at the station, so the pump animates.
+function FillingStep({ status, isLast, pumping }: { status: Status; isLast: boolean; pumping: boolean }) {
   const bg = status === 'pending' ? '#FAFAFA' : BLUE;
   const badgeText = status === 'completed' ? 'Completed' : status === 'active' ? 'In Progress' : null;
   const badgeColor = status === 'completed' ? GREEN : BLUE;
@@ -117,9 +138,7 @@ function FillingStep({ status, isLast }: { status: Status; isLast: boolean }) {
   return (
     <View style={styles.stepRow}>
       <View style={styles.stepIconColumn}>
-        <View style={[styles.stepIconCircle, styles.fuelIconCircle, status === 'pending' && styles.fuelIconCirclePending]}>
-          <SvgXml xml={STATION_PUMP_ICON_XML} width={20} height={20} />
-        </View>
+        <FillingStatusBadge active={pumping} size={36} />
         {!isLast && <Connector color={status === 'pending' ? null : bg} />}
       </View>
 
@@ -132,6 +151,34 @@ function FillingStep({ status, isLast }: { status: Status; isLast: boolean }) {
         )}
       </View>
     </View>
+  );
+}
+
+function QueuedIcon({ size = 16, color = '#fff' }: IconProps) {
+  return <Hourglass size={size} color={color} weight="fill" />;
+}
+
+// Floats just above the tracking card while the rider finishes an earlier delivery,
+// like ride-hailing apps do when a driver is "completing another ride nearby".
+function QueuedBanner({ queued, bottom, onDismiss }: { queued: QueuedState; bottom: number; onDismiss: () => void }) {
+  return (
+    <Animated.View
+      entering={FadeInDown.duration(250)}
+      exiting={FadeOutDown.duration(200)}
+      style={[styles.queueBanner, { bottom }]}
+      accessibilityRole="alert"
+    >
+      <View style={styles.queueBannerIcon}>
+        <PathIcon size={22} weight="bold" color={PRIMARY} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.queueBannerTitle}>{queued.banner}</Text>
+        {!!queued.startsIn && <Text style={styles.queueBannerMeta}>{queued.startsIn}</Text>}
+      </View>
+      <TouchableOpacity onPress={onDismiss} hitSlop={12} accessibilityLabel="Dismiss" accessibilityRole="button">
+        <X size={18} weight="bold" color="rgba(0,0,0,0.5)" />
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
@@ -169,12 +216,17 @@ export default function Tracker() {
   const insets = useSafeAreaInsets();
   const mapRef = useRef<MapView>(null);
   const [ratingSheetVisible, setRatingSheetVisible] = useState(false);
+  const isDemo = orderId === DEMO_ORDER_ID;
+  const client = useQueryClient();
   const orderQuery = useOrder(orderId);
   const stationsQuery = useStations();
   const rateOrder = useRateOrder(orderId);
+  const detail = orderQuery.data;
+  // Live ETA kept fresh by the trip watcher (features/trip), shared with the alerts.
+  const live = useTripStore((s) => s.etas[orderId]);
 
-  const order = orderQuery.data?.order;
-  const riderLocation = orderQuery.data?.riderLocation ?? null;
+  const order = detail?.order;
+  const riderLocation = detail?.riderLocation ?? null;
   const rider = order && typeof order.riderId === 'object' && order.riderId ? order.riderId : null;
   const status = order?.status;
   const hasRating = !!order?.rating;
@@ -182,6 +234,38 @@ export default function Tracker() {
   // falls back to "searching" here means that rider cancelled (doc scenario D).
   const reassigning = !!status && isReassigning(status);
   const statusBadge = status ? customerStatusLabel(status) : null;
+  // The rider has reached the station (or is pulling in): the pump animates on the map and card.
+  const atStation = status === 'filling' || (status === 'picked_up' && live?.phase === 'approaching_station');
+  const user = useAuthStore((s) => s.user);
+  // Demo tools (top right). The queue switch edits the demo order itself, so the alerts
+  // react too; on a real rider_assigned order it only changes this screen.
+  const [simRunning, setSimRunning] = useState(isDemo && isDemoTripRunning());
+  const [localQueue, setLocalQueue] = useState<DemoQueue>(0);
+  const demoQueue: DemoQueue = isDemo ? (Math.min(2, detail?.riderQueue?.ordersAhead ?? 0) as DemoQueue) : localQueue;
+  const showDemoSwitch = DEMO_MODE && status === 'rider_assigned' && !simRunning;
+  const cycleDemoQueue = () => (isDemo ? setDemoQueue(client, nextDemoQueue(demoQueue)) : setLocalQueue(nextDemoQueue));
+  const handleSimulate = () => {
+    if (simRunning) {
+      stopDemoTrip();
+      setSimRunning(false);
+    } else if (status === 'delivered') {
+      resetDemoOrder(client);
+    } else {
+      startDemoTrip(client, () => setSimRunning(false));
+      setSimRunning(true);
+    }
+  };
+  const riderQueue =
+    !isDemo && showDemoSwitch && localQueue > 0
+      ? { ordersAhead: localQueue, startsInSeconds: localQueue * 240 }
+      : detail?.riderQueue;
+  // The rider accepted this order but is still finishing an earlier one in their queue.
+  const queued = status && !reassigning ? queuedState(status, riderQueue) : null;
+  // Dismissing hides the banner until the queue changes (e.g. 2 ahead -> 1 ahead).
+  const [bannerDismissedFor, setBannerDismissedFor] = useState<number | null>(null);
+  const showQueueBanner = !!queued && bannerDismissedFor !== queued.ordersAhead;
+  const [cardHeight, setCardHeight] = useState(0);
+  const cardBottom = Math.max(insets.bottom, 8);
 
   const customer: LatLng | null = order
     ? { latitude: order.deliveryAddress.lat, longitude: order.deliveryAddress.lng }
@@ -214,6 +298,27 @@ export default function Tracker() {
   );
   const ridePath = routePath ?? (customer && stationPoint ? [stationPoint, customer] : []);
 
+  // While queued, the leg of the order the rider is on now (rider -> that drop-off), drawn in
+  // ash grey so it reads as someone else's trip. Endpoints rounded (~110 m) so the route is not
+  // refetched on every GPS ping.
+  const stop = queued ? riderQueue?.currentStop : null;
+  const queueStop: LatLng | null = stop ? { latitude: stop.lat, longitude: stop.lng } : null;
+  const round3 = (n: number) => Math.round(n * 1000) / 1000;
+  const { path: queueRoad } = useRoadRoute(
+    queueStop && riderLocation
+      ? {
+          fromLat: round3(riderLocation.lat),
+          fromLng: round3(riderLocation.lng),
+          toLat: queueStop.latitude,
+          toLng: queueStop.longitude,
+        }
+      : null,
+  );
+  const queuePath =
+    queueStop && riderLocation
+      ? (queueRoad ?? [{ latitude: riderLocation.lat, longitude: riderLocation.lng }, queueStop])
+      : [];
+
   // The marker faces its direction of travel, taken from the last two live positions.
   const lastRider = useRef<LatLng | null>(null);
   const [bearing, setBearing] = useState(0);
@@ -232,7 +337,58 @@ export default function Tracker() {
     lastRider.current = riderPoint;
   }, [riderLat, riderLng]);
 
-  // Zoom/pan to fit the customer, the station, and the rider all at once.
+  // The camera follows the rider on every location update. Dragging the map pauses that so
+  // the customer can look around; the re-centre button picks the rider up again.
+  const [following, setFollowing] = useState(true);
+  const followingRider = following && riderLat !== undefined && riderLng !== undefined && status !== 'delivered';
+  const zoomedToRider = useRef(false);
+  // Collapsing the card leaves only the heading, giving the map room to follow the rider.
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    if (!followingRider) return;
+    const center = { latitude: riderLat!, longitude: riderLng! };
+    if (!zoomedToRider.current) {
+      // Lock-on: street level around the rider, tighter still with the card collapsed.
+      zoomedToRider.current = true;
+      const delta = collapsed ? 0.005 : 0.008;
+      mapRef.current?.animateToRegion({ ...center, latitudeDelta: delta, longitudeDelta: delta }, 700);
+    } else {
+      // Later pings (and the card resizing) only pan, keeping whatever zoom the customer chose.
+      mapRef.current?.animateCamera({ center }, { duration: 900 });
+    }
+  }, [followingRider, riderLat, riderLng, collapsed, cardHeight]);
+  const setCardCollapsed = (next: boolean) => {
+    setCollapsed(next);
+    // Re-zoom on the rider for the new amount of map space.
+    zoomedToRider.current = false;
+    setFollowing(true);
+  };
+  // Swipe the card's top edge down to collapse, up to expand. Read through a ref because
+  // the responder is created once.
+  const collapseRef = useRef(setCardCollapsed);
+  collapseRef.current = setCardCollapsed;
+  const cardPan = useRef(
+    PanResponder.create({
+      // Capture, so a vertical drag takes over from the handle's tap.
+      onMoveShouldSetPanResponderCapture: (_, g) => Math.abs(g.dy) > 8 && Math.abs(g.dy) > Math.abs(g.dx),
+      onPanResponderRelease: (_, g) => {
+        if (g.dy > 30) collapseRef.current(true);
+        else if (g.dy < -30) collapseRef.current(false);
+      },
+    }),
+  ).current;
+  const pauseFollowing = () => {
+    if (following) setFollowing(false);
+  };
+  const recenter = () => {
+    zoomedToRider.current = false;
+    setFollowing(true);
+  };
+  // Keeps the map's centre in the strip between the top buttons and the tracking card,
+  // so a followed rider never hides behind the card.
+  const mapPadding = { top: insets.top + 56, right: 0, bottom: cardHeight + cardBottom + 16, left: 0 };
+
+  // Without a rider to follow (none yet, or delivered), frame the customer and the station.
   // Read through a ref so the camera re-frames when something appears, not on every rider ping.
   const frame = useRef({ customer, stationPoint, riderPoint });
   frame.current = { customer, stationPoint, riderPoint };
@@ -242,19 +398,23 @@ export default function Tracker() {
   const topInset = insets.top;
   useEffect(() => {
     const { customer, stationPoint, riderPoint } = frame.current;
-    if (!customer) return;
+    if (!customer || followingRider) return;
     const points = [customer, ...(stationPoint ? [stationPoint] : []), ...(riderPoint ? [riderPoint] : [])];
     const timer = setTimeout(() => {
       mapRef.current?.fitToCoordinates(points, {
-        edgePadding: { top: topInset + 80, left: 60, right: 60, bottom: 340 },
+        // mapPadding already keeps clear of the top buttons and the card.
+        edgePadding: { top: 40, left: 60, right: 60, bottom: 40 },
         animated: true,
       });
     }, 300);
     return () => clearTimeout(timer);
-  }, [hasOrder, hasStation, hasRider, routePath, topInset]);
+  }, [hasOrder, hasStation, hasRider, routePath, topInset, followingRider]);
 
-  const statusFor = (index: number): Status => (minStep > index ? 'completed' : minStep === index ? 'active' : 'pending');
+  // While queued, the rider has not started this order, so every step waits.
+  const statusFor = (index: number): Status =>
+    queued ? 'pending' : minStep > index ? 'completed' : minStep === index ? 'active' : 'pending';
   const subtitleFor = (index: number) => {
+    if (queued && index === 0) return 'Up next';
     const state = statusFor(index);
     if (state === 'completed') return 'Done';
     if (state === 'active') return 'In progress';
@@ -282,97 +442,208 @@ export default function Tracker() {
 
   return (
     <View style={styles.main}>
-      <MapView
-        ref={mapRef}
-        style={styles.map}
-        initialRegion={{
-          latitude: customer.latitude,
-          longitude: customer.longitude,
-          latitudeDelta: 0.015,
-          longitudeDelta: 0.015,
-        }}
-        userInterfaceStyle="light"
-      >
-        <UrlTile urlTemplate={MAP_TILE_URL} maximumZ={20} tileSize={256} />
-        {ridePath.length > 1 && (
-          <Polyline
-            coordinates={ridePath}
-            strokeColor="#0088FF"
-            strokeWidth={4}
-            lineCap="round"
-            lineJoin="round"
-          />
-        )}
+      <View style={styles.map} onTouchMove={pauseFollowing}>
+        <MapView
+          ref={mapRef}
+          style={styles.map}
+          mapPadding={mapPadding}
+          initialRegion={{
+            latitude: customer.latitude,
+            longitude: customer.longitude,
+            latitudeDelta: 0.015,
+            longitudeDelta: 0.015,
+          }}
+          userInterfaceStyle="light"
+        >
+          <UrlTile urlTemplate={MAP_TILE_URL} maximumZ={20} tileSize={256} />
+          {ridePath.length > 1 && (
+            <Polyline
+              coordinates={ridePath}
+              strokeColor="#0088FF"
+              strokeWidth={4}
+              lineCap="round"
+              lineJoin="round"
+            />
+          )}
 
-        <Marker coordinate={customer} anchor={{ x: 0.5, y: 1 }} title="You">
-          <SvgXml xml={LOCATION_MARKER_XML} width={34} height={55} />
-        </Marker>
+          {queuePath.length > 1 && (
+            <Polyline coordinates={queuePath} strokeColor="#A3A3A3" strokeWidth={4} lineCap="round" lineJoin="round" />
+          )}
+          {queueStop && (
+            <Marker coordinate={queueStop} anchor={{ x: 0.5, y: 0.5 }} title="Current delivery" tracksViewChanges={false}>
+              <View style={styles.queueStopDot} />
+            </Marker>
+          )}
 
-        {stationPoint && (
-          <Marker coordinate={stationPoint} anchor={{ x: 0.5, y: 0.96 }} title={station?.name ?? 'Filling Station'}>
-            <StationPinIcon selected />
+          <Marker coordinate={customer} anchor={{ x: 0.5, y: 1 }} title="You">
+            <SvgXml xml={LOCATION_MARKER_XML} width={34} height={55} />
           </Marker>
-        )}
 
-        {riderPoint && status !== 'delivered' && (
-          <Marker coordinate={riderPoint} anchor={{ x: 0.5, y: 0.5 }} flat>
-            <BikeRiderMarker bearing={bearing} />
-          </Marker>
-        )}
-      </MapView>
+          {stationPoint && (
+            <Marker
+              coordinate={stationPoint}
+              anchor={{ x: 0.5, y: 0.96 }}
+              title={station?.name ?? 'Filling Station'}
+              // Android redraws custom markers only while this is on; keep it on while the pump animates.
+              tracksViewChanges={atStation}
+            >
+              <StationPinIcon selected active={atStation} />
+            </Marker>
+          )}
+
+          {riderPoint && status !== 'delivered' && (
+            <Marker coordinate={riderPoint} anchor={{ x: 0.5, y: 0.5 }} flat>
+              <BikeRiderMarker bearing={bearing} />
+            </Marker>
+          )}
+        </MapView>
+      </View>
+
+      {riderPoint && status !== 'delivered' && !following && cardHeight > 0 && (
+        <TouchableOpacity
+          style={[styles.recenterButton, { bottom: cardBottom + cardHeight + (showQueueBanner && queued ? 96 : 12) }]}
+          onPress={recenter}
+          accessibilityRole="button"
+          accessibilityLabel="Follow the rider"
+        >
+          <NavigationArrow size={20} weight="fill" color={PRIMARY} />
+        </TouchableOpacity>
+      )}
 
       <TouchableOpacity style={[styles.homeButton, { top: insets.top + 4 }]} onPress={handleGoHome} accessibilityLabel="Go to Home">
         <House size={20} weight="bold" color="#000" />
       </TouchableOpacity>
 
-      <GlassCard style={[styles.card, { bottom: Math.max(insets.bottom, 8) }]}>
-        <View style={styles.handle} />
-
-        <View style={styles.cardBody}>
-          <View>
-            <Text style={styles.title}>{reassigning ? 'Finding another rider' : (statusBadge?.label ?? 'Track All Activities Here')}</Text>
-            <Text style={styles.subtitle}>
-              {reassigning ? 'We are on it.' : (statusBadge?.detail ?? 'Enjoy real time track system as your gas cylinder gets filled')}
+      <View style={[styles.demoTools, { top: insets.top + 8 }]} pointerEvents="box-none">
+        {showDemoSwitch && (
+          <TouchableOpacity
+            style={styles.demoSwitch}
+            onPress={cycleDemoQueue}
+            accessibilityRole="button"
+            accessibilityLabel="Switch rider queue demo"
+          >
+            <View style={[styles.demoDot, demoQueue > 0 && styles.demoDotOn]} />
+            <Text style={styles.demoSwitchText}>Queue demo · {demoQueue === 0 ? 'Off' : `${demoQueue} ahead`}</Text>
+          </TouchableOpacity>
+        )}
+        {isDemo && DEMO_MODE && (
+          <TouchableOpacity style={styles.demoSwitch} onPress={handleSimulate} accessibilityRole="button">
+            {simRunning ? (
+              <Stop size={12} weight="fill" color="#fff" />
+            ) : status === 'delivered' ? (
+              <ArrowCounterClockwise size={12} weight="bold" color="#fff" />
+            ) : (
+              <Play size={12} weight="fill" color={GREEN} />
+            )}
+            <Text style={styles.demoSwitchText}>
+              {simRunning ? 'Stop trip' : status === 'delivered' ? 'Reset demo' : 'Simulate trip'}
             </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {showQueueBanner && queued && cardHeight > 0 && (
+        <QueuedBanner
+          queued={queued}
+          bottom={cardBottom + cardHeight + 12}
+          onDismiss={() => setBannerDismissedFor(queued.ordersAhead)}
+        />
+      )}
+
+      <Animated.View
+        layout={LinearTransition.springify().damping(20).stiffness(140)}
+        style={[styles.cardWrap, { bottom: cardBottom }]}
+        onLayout={(e) => setCardHeight(e.nativeEvent.layout.height)}
+      >
+        <GlassCard style={styles.card}>
+          <View {...cardPan.panHandlers}>
+            <Pressable
+              style={styles.handleArea}
+              onPress={() => setCardCollapsed(!collapsed)}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={collapsed ? 'Show trip details' : 'Hide trip details'}
+            >
+              <View style={styles.handle} />
+            </Pressable>
           </View>
 
-          {reassigning ? (
-            <View style={styles.reassigningRow}>
-              <ActivityIndicator color={PRIMARY} />
-              <Text style={styles.reassigningText}>No action needed on your part — we&apos;ll notify you the moment a new rider accepts.</Text>
+          <View style={styles.cardBody}>
+            <View {...cardPan.panHandlers}>
+              <Text style={styles.title}>
+                {reassigning ? 'Finding another rider' : queued ? queued.label : (statusBadge?.label ?? 'Track All Activities Here')}
+              </Text>
+              <Text style={styles.subtitle}>
+                {reassigning
+                  ? 'We are on it.'
+                  : queued
+                    ? queued.detail
+                    : (statusBadge?.detail ?? 'Enjoy real time track system as your gas cylinder gets filled')}
+              </Text>
+              {!reassigning && live?.eta && etaLead(live.phase) && (
+                <View style={styles.etaRow}>
+                  <Clock size={14} weight="bold" color={PRIMARY} />
+                  <Text style={styles.etaText}>
+                    {etaLead(live.phase)} {formatEtaRange(live.eta)}
+                  </Text>
+                  {/* A tag only for a delay actually seen: a queue at the pump or the rider stuck in traffic. */}
+                  {live.condition && <Text style={styles.etaTraffic}>· {CONDITION_TEXT[live.condition]}</Text>}
+                </View>
+              )}
             </View>
-          ) : (
-            <>
-              {rider && <RiderCard rider={rider} />}
 
-              <View>
-                <StackedStep
-                  icon={STEPS[0].icon}
-                  title={STEPS[0].title}
-                  subtitle={subtitleFor(0)}
-                  status={statusFor(0)}
-                  isLast={false}
-                />
-                <FillingStep status={statusFor(1)} isLast={false} />
-                <StackedStep
-                  icon={STEPS[2].icon}
-                  title={STEPS[2].title}
-                  subtitle={subtitleFor(2)}
-                  status={statusFor(2)}
-                  isLast
-                />
-              </View>
-            </>
-          )}
-        </View>
-      </GlassCard>
+            {collapsed ? null : reassigning ? (
+              <Animated.View entering={FadeIn.duration(250)} exiting={FadeOut.duration(150)} style={styles.reassigningRow}>
+                <ActivityIndicator color={PRIMARY} />
+                <Text style={styles.reassigningText}>No action needed on your part — we&apos;ll notify you the moment a new rider accepts.</Text>
+              </Animated.View>
+            ) : (
+              <Animated.View entering={FadeIn.duration(250)} exiting={FadeOut.duration(150)} style={styles.cardDetails}>
+                {rider && <RiderCard rider={rider} />}
+
+                <View>
+                  {queued && (
+                    <StackedStep
+                      icon={QueuedIcon}
+                      title={queued.ordersAhead === 1 ? 'Finishing a nearby delivery' : `Finishing ${queued.ordersAhead} deliveries`}
+                      subtitle={queued.startsIn ?? 'In progress'}
+                      status="active"
+                      isLast={false}
+                    />
+                  )}
+                  <StackedStep
+                    icon={STEPS[0].icon}
+                    title={STEPS[0].title}
+                    subtitle={subtitleFor(0)}
+                    status={statusFor(0)}
+                    isLast={false}
+                  />
+                  <FillingStep status={statusFor(1)} isLast={false} pumping={atStation} />
+                  <StackedStep
+                    icon={STEPS[2].icon}
+                    title={STEPS[2].title}
+                    subtitle={subtitleFor(2)}
+                    status={statusFor(2)}
+                    isLast
+                  />
+                </View>
+              </Animated.View>
+            )}
+          </View>
+        </GlassCard>
+      </Animated.View>
 
       <RatingSheet
         visible={ratingSheetVisible}
         riderName={rider?.firstName}
         onClose={() => setRatingSheetVisible(false)}
         onSubmit={async (score, feedback) => {
+          if (isDemo) return;
           await rateOrder.mutateAsync({ score, comment: feedback || undefined });
+        }}
+        onReport={async (reason, details) => {
+          if (isDemo) return;
+          await reportDeliveryIssue(user, orderId, reason, details);
         }}
       />
     </View>
@@ -386,6 +657,29 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  queueStopDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#A3A3A3',
+    borderWidth: 3,
+    borderColor: '#fff',
+  },
+  recenterButton: {
+    position: 'absolute',
+    right: 16,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 6,
   },
   homeButton: {
     position: 'absolute',
@@ -402,10 +696,12 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 4,
   },
-  card: {
+  cardWrap: {
     position: 'absolute',
     left: 16,
     right: 16,
+  },
+  card: {
     backgroundColor: '#fff',
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
@@ -419,6 +715,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 12,
     elevation: 8,
+  },
+  handleArea: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  cardDetails: {
+    gap: 20,
   },
   handle: {
     alignSelf: 'center',
@@ -439,6 +743,91 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 13,
     color: 'rgba(0,0,0,0.5)',
+    marginTop: 2,
+  },
+  demoTools: {
+    position: 'absolute',
+    right: 16,
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  etaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    marginTop: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,136,255,0.08)',
+  },
+  etaText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: PRIMARY,
+  },
+  etaTraffic: {
+    fontSize: 12,
+    color: 'rgba(0,0,0,0.5)',
+  },
+  demoSwitch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    height: 32,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+  },
+  demoDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.4)',
+  },
+  demoDotOn: {
+    backgroundColor: GREEN,
+  },
+  demoSwitchText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  queueBanner: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  queueBannerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,136,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  queueBannerTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#000',
+    lineHeight: 19,
+  },
+  queueBannerMeta: {
+    fontSize: 12,
+    color: 'rgba(0,0,0,0.55)',
     marginTop: 2,
   },
   reassigningRow: {
@@ -512,14 +901,6 @@ const styles = StyleSheet.create({
   },
   stepIconOutline: {
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.1)',
-  },
-  fuelIconCircle: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: 'rgba(0,136,255,0.25)',
-  },
-  fuelIconCirclePending: {
     borderColor: 'rgba(0,0,0,0.1)',
   },
   connector: {

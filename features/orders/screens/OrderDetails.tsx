@@ -13,6 +13,8 @@ import {
 import BackButton from '@/components/BackButton';
 import RatingSheet from '@/features/orders/components/RatingSheet';
 import { useOrder, useRateOrder } from '@/features/orders/hooks';
+import { reportDeliveryIssue } from '@/features/orders/report';
+import { useAuthStore } from '@/features/auth/authStore';
 import { toOrderItem, type OrderItem } from '@/features/orders/orderView';
 import { SIZE_NAME } from '@/features/orders/status';
 import { useStations } from '@/features/catalog/hooks';
@@ -86,6 +88,7 @@ function OrderDetailsContent({ order }: { order: OrderItem }) {
   const insets = useSafeAreaInsets();
   const [ratingVisible, setRatingVisible] = useState(false);
   const rateOrder = useRateOrder(order.id);
+  const user = useAuthStore((s) => s.user);
 
   const rating = order.rating;
   const meta = statusMeta(order.status);
@@ -253,6 +256,7 @@ function OrderDetailsContent({ order }: { order: OrderItem }) {
         onSubmit={async (score, feedback) => {
           await rateOrder.mutateAsync({ score, comment: feedback || undefined });
         }}
+        onReport={(reason, details) => reportDeliveryIssue(user, order.id, reason, details)}
       />
     </View>
   );

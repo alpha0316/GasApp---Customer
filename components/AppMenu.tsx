@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, ViewStyle } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Bell, ClockCounterClockwise, Gear, House, List, LockKey, Phone, SignOut } from 'phosphor-react-native';
+import { Bell, ClockCounterClockwise, House, List, Phone, SignOut } from 'phosphor-react-native';
 import { useAuthStore } from '@/features/auth/authStore';
 
 export type AppMenuActive = 'home' | 'orders' | 'notifications' | 'contact' | null;
@@ -27,7 +27,7 @@ export default function AppMenuButton({ active = null, style }: { active?: AppMe
 
   const close = () => setOpen(false);
 
-  const goTo = (screen: 'Home' | 'Orders' | 'Notification' | 'ContactUs' | 'SetPassword' | 'Account') => {
+  const goTo = (screen: 'Home' | 'Orders' | 'Notification' | 'ContactUs' | 'Account') => {
     setOpen(false);
     navigation.navigate(screen as never);
   };
@@ -103,17 +103,7 @@ export default function AppMenuButton({ active = null, style }: { active?: AppMe
               </TouchableOpacity>
             ))}
 
-            <TouchableOpacity style={styles.menuItem} onPress={close}>
-              <Gear size={18} color="rgba(0,0,0,0.6)" />
-              <Text style={styles.menuItemText}>Settings</Text>
-            </TouchableOpacity>
-
             <View style={styles.menuDivider} />
-
-            <TouchableOpacity style={styles.menuItem} onPress={() => goTo('SetPassword')}>
-              <LockKey size={18} color="rgba(0,0,0,0.6)" />
-              <Text style={styles.menuItemText}>Password</Text>
-            </TouchableOpacity>
 
             <TouchableOpacity style={styles.menuItem} onPress={() => goTo('Account')}>
               <View style={styles.menuAvatar}>

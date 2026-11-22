@@ -55,11 +55,11 @@ export default function CompleteProfile() {
     }
   };
 
-  const handleVerifyEmail = async () => {
-    if (!sentTo) return;
+  const handleVerifyEmail = async (entered: string = code) => {
+    if (!sentTo || submitting) return;
     setSubmitting(true);
     try {
-      setUser(await addContact('email', sentTo, code));
+      setUser(await addContact('email', sentTo, entered));
       await finishProfile();
     } catch (error) {
       Alert.alert('Could not verify the code', errorMessage(error));
@@ -77,11 +77,11 @@ export default function CompleteProfile() {
         <Text style={styles.title}>Verify your email</Text>
         <Text style={styles.subtitle}>Enter the code we sent to {sentTo}.</Text>
 
-        <OtpCodeInput target={sentTo} onChange={setCode} onResend={() => requestOtp('email', sentTo)}>
+        <OtpCodeInput target={sentTo} onChange={setCode} onComplete={handleVerifyEmail} onResend={() => requestOtp('email', sentTo)}>
           <PrimaryButton
             title={submitting ? 'Verifying...' : 'Verify'}
             disabled={code === '' || submitting}
-            onPress={handleVerifyEmail}
+            onPress={() => handleVerifyEmail()}
           />
         </OtpCodeInput>
       </View>

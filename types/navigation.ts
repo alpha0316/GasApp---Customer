@@ -11,9 +11,11 @@ export type RootStackParamList = {
   Orders: undefined;
   OrderDetails: { orderId: string };
   Notification: undefined;
+  NotificationSettings: undefined;
   ContactUs: undefined;
   SetPassword: undefined;
   Account: undefined;
+  PersonalInfo: undefined;
   AddContact: { channel: 'email' | 'phone' };
   FindingRider: { orderIds: string[] };
   Tracker: { orderId: string; orderIds?: string[] };
