@@ -80,9 +80,10 @@ export function useHomeLocation() {
     }
   };
 
-  const selectPreset = (loc: { name: string; latitude: number; longitude: number }) => {
+  const selectPreset = (loc: { name: string; detail?: string; latitude: number; longitude: number }) => {
     moveTo({ latitude: loc.latitude, longitude: loc.longitude });
-    setCurrentLocation(loc.name);
+    // A saved place delivers to its address, not its nickname.
+    setCurrentLocation(loc.detail ?? loc.name);
   };
 
   return { mapRef, region, setRegion, userLocation, currentLocation, refocus, selectPreset };

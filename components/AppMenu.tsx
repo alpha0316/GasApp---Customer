@@ -71,7 +71,7 @@ export default function AppMenuButton({ active = null, style }: { active?: AppMe
     },
     {
       key: 'contact',
-      label: 'Contact Us',
+      label: 'Help & Support',
       icon: (
         <Phone
           size={18}

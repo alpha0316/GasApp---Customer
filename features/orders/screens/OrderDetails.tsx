@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Share, Alert, ActivityIndicator } from 'react-native';
-import { useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   CaretRight,
@@ -11,10 +11,7 @@ import {
   Star,
 } from 'phosphor-react-native';
 import BackButton from '@/components/BackButton';
-import RatingSheet from '@/features/orders/components/RatingSheet';
-import { useOrder, useRateOrder } from '@/features/orders/hooks';
-import { reportDeliveryIssue } from '@/features/orders/report';
-import { useAuthStore } from '@/features/auth/authStore';
+import { useOrder } from '@/features/orders/hooks';
 import { toOrderItem, type OrderItem } from '@/features/orders/orderView';
 import { SIZE_NAME } from '@/features/orders/status';
 import { useStations } from '@/features/catalog/hooks';
@@ -86,9 +83,7 @@ export default function OrderDetails() {
 
 function OrderDetailsContent({ order }: { order: OrderItem }) {
   const insets = useSafeAreaInsets();
-  const [ratingVisible, setRatingVisible] = useState(false);
-  const rateOrder = useRateOrder(order.id);
-  const user = useAuthStore((s) => s.user);
+  const navigation = useNavigation();
 
   const rating = order.rating;
   const meta = statusMeta(order.status);
@@ -178,7 +173,7 @@ function OrderDetailsContent({ order }: { order: OrderItem }) {
                 </Text>
               </View>
               {order.status === 'delivered' && rating === null && (
-                <TouchableOpacity style={styles.rateButton} onPress={() => setRatingVisible(true)}>
+                <TouchableOpacity style={styles.rateButton} onPress={() => navigation.navigate('RateDelivery', { orderId: order.id })}>
                   <Star size={14} weight="bold" color={PRIMARY} />
                   <Text style={styles.rateButtonText}>Rate</Text>
                 </TouchableOpacity>
@@ -249,15 +244,6 @@ function OrderDetailsContent({ order }: { order: OrderItem }) {
         </View>
       </ScrollView>
 
-      <RatingSheet
-        visible={ratingVisible}
-        riderName={order.rider?.firstName}
-        onClose={() => setRatingVisible(false)}
-        onSubmit={async (score, feedback) => {
-          await rateOrder.mutateAsync({ score, comment: feedback || undefined });
-        }}
-        onReport={(reason, details) => reportDeliveryIssue(user, order.id, reason, details)}
-      />
     </View>
   );
 }

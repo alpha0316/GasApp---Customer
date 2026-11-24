@@ -1,6 +1,10 @@
-// All API amounts are integer minor units (pesewas). Convert only to display.
+// The app shows Ghana cedis with the cedi sign only (never "GH", "GHS" or "GHC").
+export const CEDI = '₵';
+const symbolFor = (currency: string) => (currency === 'GHS' ? CEDI : currency);
+
+// All API amounts are integer minor units (pesewas). Convert only to display, e.g. 7439 -> "₵ 74.39".
 export function formatMoney(minor: number, currency: string): string {
-  return new Intl.NumberFormat('en-GH', { style: 'currency', currency }).format(minor / 100);
+  return `${symbolFor(currency)} ${(minor / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 // Whole major units for display and the amount input, e.g. 15000 -> 150.
@@ -21,10 +25,9 @@ export function roundToMajor(minor: number): number {
   return Math.round(minor / 100) * 100;
 }
 
-// Display text in the app's style, rounded to whole units, e.g. 7439 -> "GH 74". Display only, never math.
+// Display text in the app's style, rounded to whole units, e.g. 7439 -> "₵ 74". Display only, never math.
 export function displayMoney(minor: number, currency: string): string {
-  const prefix = currency === 'GHS' ? 'GH' : currency;
-  return `${prefix} ${Math.round(minor / 100).toLocaleString('en-US')}`;
+  return `${symbolFor(currency)} ${Math.round(minor / 100).toLocaleString('en-US')}`;
 }
 
 // Rounds each line of a bill to whole units so the lines still add up to the rounded total

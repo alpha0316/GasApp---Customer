@@ -55,16 +55,21 @@ export default function FloatingSheet({ visible, onClose, children, footer, aler
 interface SheetButtonProps {
   title: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary';
+  variant?: 'primary' | 'secondary' | 'danger';
   disabled?: boolean;
   icon?: React.ReactNode;
 }
 
 export function SheetButton({ title, onPress, variant = 'primary', disabled, icon }: SheetButtonProps) {
-  const primary = variant === 'primary';
+  // Danger is a filled red button, for actions that cannot be undone.
+  const primary = variant !== 'secondary';
   return (
     <TouchableOpacity
-      style={[styles.button, primary ? styles.buttonPrimary : styles.buttonSecondary, disabled && styles.buttonDisabled]}
+      style={[
+        styles.button,
+        variant === 'danger' ? styles.buttonDanger : primary ? styles.buttonPrimary : styles.buttonSecondary,
+        disabled && styles.buttonDisabled,
+      ]}
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"
@@ -114,6 +119,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
   },
   buttonPrimary: { backgroundColor: '#007AFF' },
+  buttonDanger: { backgroundColor: '#D92D20' },
   buttonSecondary: { backgroundColor: '#FAFAFA', borderWidth: 1, borderColor: 'rgba(0,0,0,0.05)' },
   buttonDisabled: { opacity: 0.4 },
   buttonText: { fontSize: 16, fontWeight: '600' },

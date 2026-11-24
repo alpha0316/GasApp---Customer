@@ -1,18 +1,23 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, Alert } from 'react-native';
+import { Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PrimaryButton from '@/components/PrimaryButton';
-import BackButton from '@/components/BackButton';
+import { FormNote, FormRow, FormScreen, FormSection } from '@/components/form/Form';
 import { setPassword } from '@/features/auth/api';
 import { errorMessage } from '@/lib/api/client';
 
 const MIN_LENGTH = 8;
 const MAX_LENGTH = 128;
 
+const passwordInput = {
+  secureTextEntry: true,
+  autoCapitalize: 'none',
+  autoCorrect: false,
+  maxLength: MAX_LENGTH,
+} as const;
+
 export default function SetPassword() {
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -36,78 +41,22 @@ export default function SetPassword() {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <BackButton />
-      </View>
+    <FormScreen
+      title="Password"
+      footer={<PrimaryButton title={saving ? 'Saving…' : 'Save Password'} disabled={disabled} onPress={handleSave} />}
+    >
+      <FormNote>Set a password to sign in without a code. Use 8 to 128 characters.</FormNote>
 
-      <View style={styles.body}>
-        <Text style={styles.title}>Password</Text>
-        <Text style={styles.subtitle}>Set a password to sign in without a code. Use 8 to 128 characters.</Text>
+      <FormSection title="Current password">
+        <FormRow label="Current" value={currentPassword} onChangeText={setCurrentPassword} placeholder="Only if you have one" textContentType="password" {...passwordInput} />
+      </FormSection>
 
-        <Text style={styles.label}>Current password (only if you already have one)</Text>
-        <TextInput
-          style={styles.input}
-          value={currentPassword}
-          onChangeText={setCurrentPassword}
-          secureTextEntry
-          autoCapitalize="none"
-          autoCorrect={false}
-          placeholder="Current password"
-          placeholderTextColor="rgba(0,0,0,.5)"
-          accessibilityLabel="Current password"
-        />
-
-        <Text style={styles.label}>New password</Text>
-        <TextInput
-          style={styles.input}
-          value={newPassword}
-          onChangeText={setNewPassword}
-          secureTextEntry
-          autoCapitalize="none"
-          autoCorrect={false}
-          maxLength={MAX_LENGTH}
-          placeholder="New password"
-          placeholderTextColor="rgba(0,0,0,.5)"
-          accessibilityLabel="New password"
-        />
-        {tooShort && <Text style={styles.error}>Use at least {MIN_LENGTH} characters.</Text>}
-
-        <Text style={styles.label}>Confirm new password</Text>
-        <TextInput
-          style={styles.input}
-          value={confirm}
-          onChangeText={setConfirm}
-          secureTextEntry
-          autoCapitalize="none"
-          autoCorrect={false}
-          maxLength={MAX_LENGTH}
-          placeholder="Confirm new password"
-          placeholderTextColor="rgba(0,0,0,.5)"
-          accessibilityLabel="Confirm new password"
-        />
-        {mismatch && <Text style={styles.error}>The passwords do not match.</Text>}
-
-        <PrimaryButton title={saving ? 'Saving…' : 'Save Password'} disabled={disabled} onPress={handleSave} />
-      </View>
-    </View>
+      <FormSection title="New password">
+        <FormRow label="New" value={newPassword} onChangeText={setNewPassword} placeholder="At least 8 characters" textContentType="newPassword" {...passwordInput} />
+        <FormRow label="Confirm" value={confirm} onChangeText={setConfirm} placeholder="Type it again" textContentType="newPassword" {...passwordInput} />
+        {tooShort && <FormNote error>Use at least {MIN_LENGTH} characters.</FormNote>}
+        {mismatch && <FormNote error>The passwords do not match.</FormNote>}
+      </FormSection>
+    </FormScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: 'white' },
-  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  body: { marginTop: 32, gap: 12 },
-  title: { fontSize: 24, fontWeight: '700' },
-  subtitle: { fontSize: 16, color: 'rgba(0,0,0,0.6)' },
-  label: { fontSize: 16 },
-  error: { fontSize: 13, color: '#D92D20' },
-  input: {
-    height: 50,
-    borderColor: 'rgba(0, 0, 0, 0.20)',
-    borderWidth: 1,
-    padding: 8,
-    borderRadius: 12,
-    backgroundColor: '#F4F4F4',
-  },
-});

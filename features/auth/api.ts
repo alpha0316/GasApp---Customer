@@ -1,3 +1,4 @@
+import { OTP_INTEGRATION } from '@/lib/config';
 import { api } from '@/lib/api/client';
 import type { OtpChannel, User } from '@/lib/api/types';
 
@@ -8,7 +9,7 @@ export interface AuthResult {
 }
 
 export const requestOtp = (channel: OtpChannel, target: string) =>
-  api<void>('/auth/otp/request', { method: 'POST', body: { channel, target } });
+  !OTP_INTEGRATION ? Promise.resolve() : api<void>('/auth/otp/request', { method: 'POST', body: { channel, target } });
 
 // The customer app never sends `role`: the server default is "customer".
 export const verifyOtp = (channel: OtpChannel, target: string, code: string) =>

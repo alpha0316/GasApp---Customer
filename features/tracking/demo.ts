@@ -2,6 +2,9 @@ import type { QueryClient } from '@tanstack/react-query';
 import { orderKey, type OrderDetail } from '@/features/orders/hooks';
 import type { OrderStatus, Station } from '@/lib/api/types';
 import { fromGeoPoint, type LatLng } from '@/lib/geo';
+import { getRoute } from './api';
+import { bearingBetween, pointsAlong, snapToPath } from './heading';
+import { VEHICLE_KINDS, type VehicleKind } from './vehicles';
 
 // Demo tools let the team walk through tracker states and trip alerts without a live
 // order. On in dev builds; set EXPO_PUBLIC_DEMO_MODE=1 for others.
@@ -29,8 +32,20 @@ function demoPoints(station: Station | undefined) {
   };
 }
 
+// A plate per demo vehicle, so the rider card changes with it.
+const DEMO_PLATES: Record<VehicleKind, string> = {
+  motorbike: 'M-24-GR 1234',
+  tricycle: 'M-23-GT 5521',
+  truck: 'GR 4471-22',
+  car: 'GT 8812-24',
+};
+
+// Every simulated trip uses the next vehicle, so each one can be seen moving on the map.
+let demoTripCount = 0;
+const currentDemoVehicle = (): VehicleKind => VEHICLE_KINDS[demoTripCount % VEHICLE_KINDS.length];
+
 // A rider_assigned order delivered near a real station, queued behind one other delivery.
-export function demoOrderDetail(station: Station | undefined): OrderDetail {
+export function demoOrderDetail(station: Station | undefined, vehicle: VehicleKind = currentDemoVehicle()): OrderDetail {
   const { customer, riderStart } = demoPoints(station);
   const now = new Date().toISOString();
   return {
@@ -42,8 +57,8 @@ export function demoOrderDetail(station: Station | undefined): OrderDetail {
         firstName: 'Kwame',
         lastName: 'Mensah',
         phoneNumber: '+233240000000',
-        vehicleType: 'motorbike',
-        plateNumber: 'M-24-GR 1234',
+        vehicleType: vehicle,
+        plateNumber: DEMO_PLATES[vehicle],
         rating: 4.9,
       },
       cylinderSize: 'medium',
@@ -90,27 +105,53 @@ const lerp = (a: LatLng, b: LatLng, t: number): LatLng => ({
   longitude: a.longitude + (b.longitude - a.longitude) * t,
 });
 
-type Frame = { status: OrderStatus; at: LatLng };
+type Frame = { status: OrderStatus; at: LatLng; heading?: number };
+
+// The road between two points from the routing API, or null (routing off, offline, slow) so
+// the leg falls back to a straight line.
+async function roadBetween(from: LatLng, to: LatLng): Promise<LatLng[] | null> {
+  try {
+    const route = await Promise.race([
+      getRoute({ fromLat: from.latitude, fromLng: from.longitude, toLat: to.latitude, toLng: to.longitude }),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000)),
+    ]);
+    return route ? route.geometry.coordinates.map(([lng, lat]) => ({ latitude: lat, longitude: lng })) : null;
+  } catch {
+    return null;
+  }
+}
+
+type Roads = { toCustomer: LatLng[] | null; toStation: LatLng[] | null; back: LatLng[] | null };
 
 // Every stage the customer is alerted about, in order: to the customer, almost there,
 // cylinder picked up, a traffic stop, near the station, filling (with a queue), leaving the
 // station, almost at the door, delivered.
-function tripFrames(station: Station | undefined): Frame[] {
+// Each leg follows the road when routing answered, and carries the heading a rider's phone
+// would send (the road's direction there).
+function tripFrames(station: Station | undefined, roads: Roads): Frame[] {
   const p = demoPoints(station);
-  const leg = (status: OrderStatus, from: LatLng, to: LatLng, steps: number): Frame[] =>
-    Array.from({ length: steps }, (_, i) => ({ status, at: lerp(from, to, (i + 1) / steps) }));
+  const leg = (status: OrderStatus, from: LatLng, to: LatLng, road: LatLng[] | null, steps: number): Frame[] => {
+    const points = road ? pointsAlong(road, steps) : Array.from({ length: steps }, (_, i) => lerp(from, to, (i + 1) / steps));
+    return points.map((at, i) => ({
+      status,
+      at,
+      heading: (road && snapToPath(at, road, 5)?.segmentBearing) ?? bearingBetween(i === 0 ? from : points[i - 1], at),
+    }));
+  };
+  const toStation = leg('picked_up', p.customer, p.station, roads.toStation, 5);
+  const stuck = toStation[1];
   return [
     { status: 'rider_assigned', at: p.riderStart },
-    ...leg('rider_assigned', p.riderStart, p.customer, 5),
+    ...leg('rider_assigned', p.riderStart, p.customer, roads.toCustomer, 5),
     { status: 'picked_up', at: p.customer },
-    ...leg('picked_up', p.customer, p.station, 5).slice(0, 2),
+    ...toStation.slice(0, 2),
     // Stuck in traffic for ~10 s: the "slow traffic" alert.
-    ...Array.from({ length: 3 }, () => ({ status: 'picked_up' as const, at: lerp(p.customer, p.station, 0.4) })),
-    ...leg('picked_up', p.customer, p.station, 5).slice(2),
+    ...Array.from({ length: 3 }, () => ({ ...stuck })),
+    ...toStation.slice(2),
     // ~14 s at the pump: the "short wait at the station" alert.
     ...Array.from({ length: 4 }, () => ({ status: 'filling' as const, at: p.station })),
     { status: 'en_route_to_customer', at: p.station },
-    ...leg('en_route_to_customer', p.station, p.customer, 5),
+    ...leg('en_route_to_customer', p.station, p.customer, roads.back, 5),
     { status: 'delivered', at: p.customer },
   ];
 }
@@ -127,17 +168,38 @@ export function startDemoTrip(client: QueryClient, onEnd?: () => void): () => vo
   stopCurrent?.();
   const station = client.getQueryData<Station[]>(['stations'])?.[0];
   client.setQueryData(orderKey(DEMO_ORDER_ID), { ...demoOrderDetail(station), riderQueue: null });
-  const frames = tripFrames(station);
+  let frames: Frame[] = [];
   let i = 0;
+  let timer: ReturnType<typeof setInterval> | undefined;
+  let stopped = false;
 
-  const timer = setInterval(() => {
+  // Fetch the three roads first (a few seconds at most), then start driving.
+  const p = demoPoints(station);
+  Promise.all([roadBetween(p.riderStart, p.customer), roadBetween(p.customer, p.station), roadBetween(p.station, p.customer)]).then(
+    ([toCustomer, toStation, back]) => {
+      if (stopped) return;
+      frames = tripFrames(station, { toCustomer, toStation, back });
+      timer = setInterval(tick, TICK_MS);
+    },
+  );
+
+  function tick() {
     const frame = frames[i++];
     if (!frame) return stop();
     const at = new Date().toISOString();
     update(client, (d) => ({
       ...d,
       riderQueue: null,
-      riderLocation: frame.status === 'delivered' ? null : { lat: frame.at.latitude, lng: frame.at.longitude, updatedAt: at },
+      riderLocation:
+        frame.status === 'delivered'
+          ? null
+          : {
+              lat: frame.at.latitude,
+              lng: frame.at.longitude,
+              // Parked frames keep the last heading, as a phone does when standing still.
+              heading: frame.heading ?? d.riderLocation?.heading ?? null,
+              updatedAt: at,
+            },
       order: {
         ...d.order,
         status: frame.status,
@@ -147,10 +209,14 @@ export function startDemoTrip(client: QueryClient, onEnd?: () => void): () => vo
       },
     }));
     if (i >= frames.length) stop();
-  }, TICK_MS);
+  }
 
   function stop() {
-    clearInterval(timer);
+    if (stopped) return;
+    stopped = true;
+    // The next trip (and the reset preview) uses the next vehicle.
+    demoTripCount += 1;
+    if (timer) clearInterval(timer);
     if (stopCurrent === stop) stopCurrent = null;
     onEnd?.();
   }

@@ -2,12 +2,16 @@ import React, { useState } from 'react';
 import { Keyboard, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SvgXml } from 'react-native-svg';
-import { CaretRight, MapPin, NavigationArrow, X } from 'phosphor-react-native';
+import { CaretRight, MapPin, NavigationArrow, X, type Icon } from 'phosphor-react-native';
 import { styles } from '@/features/orders/screens/homeStyles';
 import { LOCATION_PIN_ICON_XML } from '@/features/orders/icons';
 
 export interface PresetLocation {
+  key: string;
   name: string;
+  // A saved place's address, shown under its name and used as the delivery address.
+  detail?: string;
+  icon?: Icon;
   latitude: number;
   longitude: number;
 }
@@ -24,7 +28,8 @@ export default function LocationSearch({ currentLocation, presets, onClose, onUs
   const [query, setQuery] = useState('');
   const insets = useSafeAreaInsets();
   const trimmed = query.trim();
-  const filtered = presets.filter((loc) => loc.name.toLowerCase().includes(trimmed.toLowerCase()));
+  const q = trimmed.toLowerCase();
+  const filtered = presets.filter((loc) => loc.name.toLowerCase().includes(q) || !!loc.detail?.toLowerCase().includes(q));
 
   return (
     <View style={[styles.locationSearchOverlay, { paddingTop: insets.top + 20 }]}>
@@ -59,13 +64,25 @@ export default function LocationSearch({ currentLocation, presets, onClose, onUs
           <CaretRight size={16} color="#007AFF" />
         </TouchableOpacity>
 
-        {filtered.map((loc) => (
-          <TouchableOpacity key={loc.name} style={styles.locationListRow} onPress={() => onSelectPreset(loc)}>
-            <MapPin size={18} color="rgba(0,0,0,0.4)" />
-            <Text style={styles.locationListText}>{loc.name}</Text>
-            <CaretRight size={16} color="rgba(0,0,0,0.3)" />
-          </TouchableOpacity>
-        ))}
+        {filtered.map((loc) => {
+          const Glyph = loc.icon ?? MapPin;
+          return (
+            <TouchableOpacity key={loc.key} style={styles.locationListRow} onPress={() => onSelectPreset(loc)}>
+              <Glyph size={18} color="rgba(0,0,0,0.5)" />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.locationListText, { flex: 0 }]} numberOfLines={1}>
+                  {loc.name}
+                </Text>
+                {!!loc.detail && (
+                  <Text style={{ fontSize: 12, color: 'rgba(0,0,0,0.5)', marginTop: 1 }} numberOfLines={1}>
+                    {loc.detail}
+                  </Text>
+                )}
+              </View>
+              <CaretRight size={16} color="rgba(0,0,0,0.3)" />
+            </TouchableOpacity>
+          );
+        })}
 
         {trimmed.length > 0 && filtered.length === 0 && (
           <Text style={styles.noLocationMatches}>No saved locations match &quot;{trimmed}&quot;.</Text>

@@ -2,6 +2,7 @@ import { clearToken } from '@/lib/api/tokenStorage';
 import { setUnauthorizedHandler } from '@/lib/api/client';
 import { useAuthStore } from '../authStore';
 
+jest.mock('@/lib/config', () => ({ OTP_INTEGRATION: true }));
 jest.mock('@/lib/queryClient', () => ({ queryClient: { clear: jest.fn() } }));
 jest.mock('@/lib/api/client', () => ({
   errorMessage: jest.fn(),

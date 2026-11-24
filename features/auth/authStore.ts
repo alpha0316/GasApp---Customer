@@ -7,6 +7,7 @@ import { disconnectSocket } from '@/lib/socket';
 import { unregisterPushToken } from '@/features/notifications/push';
 import { getMe, googleSignIn, passwordLogin, updateMe, verifyOtp, type AuthResult } from './api';
 import { needsEmail, needsName } from './profileGate';
+import { OTP_INTEGRATION } from '@/lib/config';
 import { getGoogleIdToken, signOutOfGoogle } from './useGoogleSignIn';
 
 type AuthStatus = 'loading' | 'signedOut' | 'signedIn';
@@ -79,6 +80,28 @@ export const useAuthStore = create<AuthState>((set, get) => {
     finishSplash: () => set({ splashDone: true }),
 
     signInWithOtp: async (channel, target, code) => {
+      if (!OTP_INTEGRATION) {
+        // OTP bypass: a local session only. No token is saved, so the next app start is signed out.
+        // A leftover token from an earlier session would 401 and sign this session out.
+        await clearToken();
+        const now = new Date().toISOString();
+        queryClient.clear();
+        set({
+          status: 'signedIn',
+          splashDone: true,
+          user: {
+            id: 'otp-bypass',
+            role: 'customer',
+            firstName: 'Test',
+            lastName: 'Customer',
+            phoneNumber: channel === 'sms' ? target : undefined,
+            email: channel === 'email' ? target : 'test@example.com',
+            createdAt: now,
+            updatedAt: now,
+          },
+        });
+        return;
+      }
       await applyAuth(await verifyOtp(channel, target, code));
     },
 

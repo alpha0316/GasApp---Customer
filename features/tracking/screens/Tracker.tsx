@@ -1,23 +1,22 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { View, Text, TouchableOpacity, StyleSheet, Linking, ActivityIndicator, PanResponder, Pressable } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Linking, ActivityIndicator, PanResponder, Pressable, Image } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView, { Marker, Polyline, UrlTile } from 'react-native-maps';
 import Svg, { Path, SvgXml } from 'react-native-svg';
-import { LOCATION_MARKER_XML } from '@/components/icons/BrandIcons';
-import BikeRiderMarker from '@/features/tracking/components/BikeRiderMarker';
+import { CALL_BOLD_XML, LOCATION_MARKER_XML, STAR_DUOTONE_XML } from '@/components/icons/BrandIcons';
+import VehicleMarker from '@/features/tracking/components/VehicleMarker';
+import { VEHICLES, vehicleKind } from '@/features/tracking/vehicles';
+import { angleBetween, bearingBetween, remainingPath, snapToPath } from '@/features/tracking/heading';
 import StationPinIcon from '@/components/StationPinIcon';
 import { FillingStatusBadge } from '@/components/icons/FillingPumpIcon';
-import { reportDeliveryIssue } from '@/features/orders/report';
-import { useAuthStore } from '@/features/auth/authStore';
 import Animated, { FadeIn, FadeInDown, FadeOut, FadeOutDown, LinearTransition } from 'react-native-reanimated';
-import { House, Phone, PathIcon, X, Hourglass, Clock, Play, Stop, ArrowCounterClockwise, NavigationArrow } from 'phosphor-react-native';
+import { House, PathIcon, X, Hourglass, Clock, Play, Stop, ArrowCounterClockwise, NavigationArrow, GasCan } from 'phosphor-react-native';
 import { MAP_TILE_URL } from '@/lib/mapTiles';
 import GlassCard from '@/components/GlassCard';
-import RatingSheet from '@/features/orders/components/RatingSheet';
-import { useOrder, useRateOrder } from '@/features/orders/hooks';
-import { customerStatusLabel, isReassigning, queuedState, stepStates, type QueuedState } from '@/features/orders/status';
+import { useOrder } from '@/features/orders/hooks';
+import { customerStatusLabel, hasPickedUp, isReassigning, pickupStepTitle, queuedState, stepStates, type QueuedState } from '@/features/orders/status';
 import {
   DEMO_MODE,
   DEMO_ORDER_ID,
@@ -30,8 +29,8 @@ import {
   type DemoQueue,
 } from '@/features/tracking/demo';
 import { useTripStore } from '@/features/trip/store';
-import { etaLead } from '@/features/trip/messages';
-import { formatEtaRange } from '@/features/trip/eta';
+import { tripAlertContent, type TripAlertContent } from '@/features/trip/messages';
+import { TRIP_STEPS } from '@/features/trip/steps';
 import { CONDITION_TEXT } from '@/features/trip/conditions';
 import { useStations } from '@/features/catalog/hooks';
 import { useRoute as useRoadRoute, type LatLng } from '@/features/tracking/hooks';
@@ -42,17 +41,6 @@ import type { RiderPublic } from '@/lib/api/types';
 const PRIMARY = '#0088FF';
 const GREEN = '#52B922';
 const BLUE = '#0085FF';
-
-function bearingBetween(a: LatLng, b: LatLng) {
-  const toRad = (deg: number) => (deg * Math.PI) / 180;
-  const toDeg = (rad: number) => (rad * 180) / Math.PI;
-  const dLng = toRad(b.longitude - a.longitude);
-  const lat1 = toRad(a.latitude);
-  const lat2 = toRad(b.latitude);
-  const y = Math.sin(dLng) * Math.cos(lat2);
-  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
-  return (toDeg(Math.atan2(y, x)) + 360) % 360;
-}
 
 type IconProps = { size?: number; color?: string };
 
@@ -68,29 +56,39 @@ function RiderIcon({ size = 16, color = '#fff' }: IconProps) {
   );
 }
 
-function FillingIcon({ size = 16, color = '#fff' }: IconProps) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
-      <Path d="M14.893 6.21967L13.5597 5.55301C13.313 5.43301 13.0063 5.52634 12.8863 5.77301C12.7597 6.02634 12.8597 6.32634 13.1063 6.44634L14.1663 6.97301V10.1663L11.6663 10.173V3.33301C11.6663 1.99967 10.773 1.33301 9.66634 1.33301H4.33301C3.22634 1.33301 2.33301 1.99967 2.33301 3.33301V14.1663H1.33301C1.05967 14.1663 0.833008 14.393 0.833008 14.6663C0.833008 14.9397 1.05967 15.1663 1.33301 15.1663H12.6663C12.9397 15.1663 13.1663 14.9397 13.1663 14.6663C13.1663 14.393 12.9397 14.1663 12.6663 14.1663H11.6663V11.173L14.6663 11.1663C14.9463 11.1663 15.1663 10.9397 15.1663 10.6663V6.66634C15.1663 6.47967 15.0597 6.30634 14.893 6.21967ZM3.99967 4.59301C3.99967 3.66634 4.56634 3.33301 5.25967 3.33301H8.74634C9.43301 3.33301 9.99967 3.66634 9.99967 4.59301V5.41301C9.99967 6.33301 9.43301 6.66634 8.73967 6.66634H5.25967C4.56634 6.66634 3.99967 6.33301 3.99967 5.40634V4.59301ZM4.33301 8.16634H6.33301C6.60634 8.16634 6.83301 8.39301 6.83301 8.66634C6.83301 8.93967 6.60634 9.16634 6.33301 9.16634H4.33301C4.05967 9.16634 3.83301 8.93967 3.83301 8.66634C3.83301 8.39301 4.05967 8.16634 4.33301 8.16634Z" fill={color} />
-    </Svg>
-  );
-}
-
-function RefillIcon({ size = 16, color = '#fff' }: IconProps) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
-      <Path d="M14.3736 7.16036L13.4669 6.10703C13.2936 5.90703 13.1536 5.5337 13.1536 5.26703V4.1337C13.1536 3.42703 12.5736 2.84703 11.8669 2.84703H10.7336C10.4736 2.84703 10.0936 2.70703 9.89358 2.5337L8.84025 1.62703C8.38025 1.2337 7.62691 1.2337 7.16025 1.62703L6.11358 2.54036C5.91358 2.70703 5.53358 2.84703 5.27358 2.84703H4.12025C3.41358 2.84703 2.83358 3.42703 2.83358 4.1337V5.2737C2.83358 5.5337 2.69358 5.90703 2.52691 6.10703L1.62691 7.16703C1.24025 7.62703 1.24025 8.3737 1.62691 8.8337L2.52691 9.8937C2.69358 10.0937 2.83358 10.467 2.83358 10.727V11.867C2.83358 12.5737 3.41358 13.1537 4.12025 13.1537H5.27358C5.53358 13.1537 5.91358 13.2937 6.11358 13.467L7.16691 14.3737C7.62691 14.767 8.38025 14.767 8.84691 14.3737L9.90025 13.467C10.1002 13.2937 10.4736 13.1537 10.7402 13.1537H11.8736C12.5802 13.1537 13.1602 12.5737 13.1602 11.867V10.7337C13.1602 10.4737 13.3002 10.0937 13.4736 9.8937L14.3802 8.84036C14.7669 8.38036 14.7669 7.62036 14.3736 7.16036ZM10.7736 6.74036L7.55358 9.96036C7.46025 10.0537 7.33358 10.107 7.20025 10.107C7.06691 10.107 6.94025 10.0537 6.84691 9.96036L5.23358 8.34703C5.04025 8.1537 5.04025 7.8337 5.23358 7.64036C5.42691 7.44703 5.74691 7.44703 5.94025 7.64036L7.20025 8.90036L10.0669 6.0337C10.2602 5.84036 10.5802 5.84036 10.7736 6.0337C10.9669 6.22703 10.9669 6.54703 10.7736 6.74036Z" fill={color} />
-    </Svg>
-  );
-}
-
 type Status = 'completed' | 'active' | 'pending';
 
-const STEPS = [
-  { key: 'rider', icon: RiderIcon, title: 'Rider heading to the filling station' },
-  { key: 'filling', icon: FillingIcon, title: 'Filling Process' },
-  { key: 'refill', icon: RefillIcon, title: 'On the way to you' },
-] as const;
+function CylinderIcon({ size = 16, color = '#fff' }: IconProps) {
+  return <GasCan size={size} color={color} weight="fill" />;
+}
+
+// Titles come from TRIP_STEPS, the same text the trip toasts use.
+const STEP_ICONS = [RiderIcon, null, RiderIcon] as const;
+
+// The active step's detail: exactly what the toast for this moment says — its description,
+// then the clock line ("Gets there in 15 min") and any delay tag ("Slight Traffic").
+function StepDetail({ content }: { content: TripAlertContent }) {
+  return (
+    <View style={styles.stepDetail}>
+      <Text style={styles.stepSubtitle}>{content.body}</Text>
+      {(content.etaStrong || content.condition) && (
+        <View style={styles.stepClock}>
+          {content.etaStrong && (
+            <>
+              <Clock size={11} weight="fill" color="#000" />
+              <Text style={styles.stepClockText}>
+                {content.etaSoft ? `${content.etaSoft} ` : ''}
+                <Text style={styles.stepClockStrong}>{content.etaStrong}</Text>
+              </Text>
+            </>
+          )}
+          {content.etaStrong && content.condition && <View style={styles.stepClockDot} />}
+          {content.condition && <Text style={styles.stepClockText}>{content.condition}</Text>}
+        </View>
+      )}
+    </View>
+  );
+}
 
 function Connector({ color }: { color: string | null }) {
   return <View style={[styles.connector, color ? { backgroundColor: color } : styles.connectorDashed]} />;
@@ -105,7 +103,7 @@ function StackedStep({
 }: {
   icon: React.ComponentType<IconProps>;
   title: string;
-  subtitle: string;
+  subtitle: React.ReactNode;
   status: Status;
   isLast: boolean;
 }) {
@@ -123,14 +121,24 @@ function StackedStep({
 
       <View style={styles.stepTextColumn}>
         <Text style={styles.stepTitle}>{title}</Text>
-        <Text style={styles.stepSubtitle}>{subtitle}</Text>
+        {typeof subtitle === 'string' ? <Text style={styles.stepSubtitle}>{subtitle}</Text> : subtitle}
       </View>
     </View>
   );
 }
 
 // `pumping`: the rider is at the station, so the pump animates.
-function FillingStep({ status, isLast, pumping }: { status: Status; isLast: boolean; pumping: boolean }) {
+function FillingStep({
+  status,
+  isLast,
+  pumping,
+  detail,
+}: {
+  status: Status;
+  isLast: boolean;
+  pumping: boolean;
+  detail?: React.ReactNode;
+}) {
   const bg = status === 'pending' ? '#FAFAFA' : BLUE;
   const badgeText = status === 'completed' ? 'Completed' : status === 'active' ? 'In Progress' : null;
   const badgeColor = status === 'completed' ? GREEN : BLUE;
@@ -142,13 +150,16 @@ function FillingStep({ status, isLast, pumping }: { status: Status; isLast: bool
         {!isLast && <Connector color={status === 'pending' ? null : bg} />}
       </View>
 
-      <View style={styles.fillingTextRow}>
-        <Text style={styles.stepTitleInline}>Filling Process</Text>
-        {badgeText && (
-          <View style={styles.inlineBadge}>
-            <Text style={[styles.inlineBadgeText, { color: badgeColor }]}>{badgeText}</Text>
-          </View>
-        )}
+      <View style={styles.fillingTextColumn}>
+        <View style={styles.fillingTextRow}>
+          <Text style={styles.stepTitleInline}>{TRIP_STEPS[1].title}</Text>
+          {badgeText && (
+            <View style={styles.inlineBadge}>
+              <Text style={[styles.inlineBadgeText, { color: badgeColor }]}>{badgeText}</Text>
+            </View>
+          )}
+        </View>
+        {detail}
       </View>
     </View>
   );
@@ -182,27 +193,69 @@ function QueuedBanner({ queued, bottom, onDismiss }: { queued: QueuedState; bott
   );
 }
 
-function RiderCard({ rider }: { rider: Pick<RiderPublic, 'firstName' | 'lastName' | 'phoneNumber'> }) {
+type RiderCardRider = Pick<RiderPublic, 'firstName' | 'lastName' | 'phoneNumber' | 'photoUrl' | 'vehicleType' | 'plateNumber' | 'rating'>;
+
+// Who is coming and how to spot them (Figma "Rider information", node 32458:25369): photo with
+// the vehicle in a small badge and the rating pill over it, then name, number plate and vehicle
+// type, and the call button on the right.
+function RiderCard({ rider }: { rider: RiderCardRider }) {
   const initials = `${rider.firstName[0] ?? ''}${rider.lastName[0] ?? ''}`.toUpperCase();
+  const vehicle = VEHICLES[vehicleKind(rider.vehicleType)];
+  // 4.95 stays 4.95, 5 shows as 5.0.
+  const rounded = typeof rider.rating === 'number' ? Number(rider.rating.toFixed(2)) : null;
+  const rating = rounded === null ? null : rounded % 1 === 0 ? rounded.toFixed(1) : String(rounded);
 
   return (
     <View style={styles.riderCard}>
-      <View style={styles.riderAvatar}>
-        <Text style={styles.riderAvatarText}>{initials}</Text>
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.riderName} numberOfLines={1}>
-          {rider.firstName} {rider.lastName}
-        </Text>
-        {!!rider.phoneNumber && <Text style={styles.riderPhone}>{rider.phoneNumber}</Text>}
+      <View style={styles.riderLeft}>
+        <View style={styles.riderVisual}>
+          {rider.photoUrl ? (
+            <Image source={{ uri: rider.photoUrl }} style={styles.riderAvatar} />
+          ) : (
+            <View style={styles.riderAvatar}>
+              <Text style={styles.riderAvatarText}>{initials}</Text>
+            </View>
+          )}
+          <View style={styles.vehicleBadge}>
+            {/* Top-down art is tilted as in the design; side-view art (car) stays upright. */}
+            <Image
+              source={vehicle.top ?? vehicle.side}
+              style={[styles.vehicleBadgeImage, !!vehicle.top && styles.vehicleBadgeTilt]}
+              resizeMode="contain"
+              accessibilityIgnoresInvertColors
+            />
+          </View>
+          {rating && (
+            <View style={styles.ratingPill} accessibilityLabel={`Rated ${rating}`}>
+              <SvgXml xml={STAR_DUOTONE_XML} width={12} height={12} />
+              <Text style={styles.ratingText}>{rating}</Text>
+            </View>
+          )}
+        </View>
+        <View style={styles.riderInfo}>
+          <Text style={styles.riderName} numberOfLines={1}>
+            {rider.firstName} {rider.lastName}
+          </Text>
+          {!!rider.plateNumber && (
+            <View style={styles.plateChip}>
+              <Text style={styles.plateText} numberOfLines={1} accessibilityLabel={`Number plate ${rider.plateNumber}`}>
+                {rider.plateNumber}
+              </Text>
+            </View>
+          )}
+          <Text style={styles.vehicleLabel} numberOfLines={1}>
+            {vehicle.label}
+          </Text>
+        </View>
       </View>
       {!!rider.phoneNumber && (
         <TouchableOpacity
           style={styles.callButton}
           onPress={() => Linking.openURL(`tel:${rider.phoneNumber}`)}
+          accessibilityRole="button"
           accessibilityLabel={`Call ${rider.firstName}`}
         >
-          <Phone size={18} weight="fill" color="#fff" />
+          <SvgXml xml={CALL_BOLD_XML} width={16} height={16} />
         </TouchableOpacity>
       )}
     </View>
@@ -215,12 +268,10 @@ export default function Tracker() {
   const { orderId } = route.params as { orderId: string };
   const insets = useSafeAreaInsets();
   const mapRef = useRef<MapView>(null);
-  const [ratingSheetVisible, setRatingSheetVisible] = useState(false);
   const isDemo = orderId === DEMO_ORDER_ID;
   const client = useQueryClient();
   const orderQuery = useOrder(orderId);
   const stationsQuery = useStations();
-  const rateOrder = useRateOrder(orderId);
   const detail = orderQuery.data;
   // Live ETA kept fresh by the trip watcher (features/trip), shared with the alerts.
   const live = useTripStore((s) => s.etas[orderId]);
@@ -236,7 +287,6 @@ export default function Tracker() {
   const statusBadge = status ? customerStatusLabel(status) : null;
   // The rider has reached the station (or is pulling in): the pump animates on the map and card.
   const atStation = status === 'filling' || (status === 'picked_up' && live?.phase === 'approaching_station');
-  const user = useAuthStore((s) => s.user);
   // Demo tools (top right). The queue switch edits the demo order itself, so the alerts
   // react too; on a real rider_assigned order it only changes this screen.
   const [simRunning, setSimRunning] = useState(isDemo && isDemoTripRunning());
@@ -280,23 +330,38 @@ export default function Tracker() {
 
   // Ask for a rating/complaint the moment a delivery finishes, instead of
   // only offering it from a details page the customer might never open.
+  // Once per visit: skipping the rating page must not bring it straight back.
+  const askedToRate = useRef(false);
   useEffect(() => {
-    if (status === 'delivered' && !hasRating) setRatingSheetVisible(true);
-  }, [status, hasRating]);
+    if (status === 'delivered' && !hasRating && !askedToRate.current) {
+      askedToRate.current = true;
+      navigation.navigate('RateDelivery', { orderId });
+    }
+  }, [status, hasRating, navigation, orderId]);
 
-  // Road-following route from the station to the customer, via the backend.
-  // Falls back to a straight line while loading or when routing is off.
+  // The road the rider is on now, from where they are to where they are going next: the customer
+  // (to collect the cylinder, or to bring it back), or the station (with the empty cylinder).
+  // While filling, or before a rider is moving on this order, the next leg is station -> customer.
+  // The rider end is rounded (~110 m) so the route is not refetched on every GPS ping, then the
+  // drawn line is trimmed to start exactly at the rider.
+  const liveRider = riderLocation && !queued ? { latitude: riderLocation.lat, longitude: riderLocation.lng } : null;
+  const legTarget =
+    status === 'rider_assigned' || status === 'en_route_to_customer' ? customer : status === 'picked_up' ? stationPoint : null;
+  const legFrom = liveRider && legTarget ? liveRider : stationPoint;
+  const legTo = liveRider && legTarget ? legTarget : customer;
+  const roundCoord = (n: number) => Math.round(n * 1000) / 1000;
   const { path: routePath } = useRoadRoute(
-    customer && stationPoint
+    legFrom && legTo && status !== 'delivered'
       ? {
-          fromLat: stationPoint.latitude,
-          fromLng: stationPoint.longitude,
-          toLat: customer.latitude,
-          toLng: customer.longitude,
+          fromLat: legFrom === liveRider ? roundCoord(legFrom.latitude) : legFrom.latitude,
+          fromLng: legFrom === liveRider ? roundCoord(legFrom.longitude) : legFrom.longitude,
+          toLat: legTo.latitude,
+          toLng: legTo.longitude,
         }
       : null,
   );
-  const ridePath = routePath ?? (customer && stationPoint ? [stationPoint, customer] : []);
+  const fullPath = routePath ?? (legFrom && legTo && status !== 'delivered' ? [legFrom, legTo] : []);
+  const ridePath = liveRider && legTarget && fullPath.length > 1 ? remainingPath(fullPath, liveRider) : fullPath;
 
   // While queued, the leg of the order the rider is on now (rider -> that drop-off), drawn in
   // ash grey so it reads as someone else's trip. Endpoints rounded (~110 m) so the route is not
@@ -319,12 +384,26 @@ export default function Tracker() {
       ? (queueRoad ?? [{ latitude: riderLocation.lat, longitude: riderLocation.lng }, queueStop])
       : [];
 
-  // The marker faces its direction of travel, taken from the last two live positions.
+  // Direction of travel from the last two live positions: the fallback when the rider's phone
+  // sends no GPS heading.
   const lastRider = useRef<LatLng | null>(null);
-  const [bearing, setBearing] = useState(0);
-  const riderPoint: LatLng | null = riderLocation
+  const [movementBearing, setMovementBearing] = useState<number | null>(null);
+  const rawRiderPoint: LatLng | null = riderLocation
     ? { latitude: riderLocation.lat, longitude: riderLocation.lng }
     : null;
+  // GPS drifts a few metres off the road; when the rider is on the drawn route, draw them on it.
+  const snapped = rawRiderPoint && routePath ? snapToPath(rawRiderPoint, routePath) : null;
+  const riderPoint = snapped?.point ?? rawRiderPoint;
+  // Which way the vehicle faces, best source first: the phone's GPS heading, then the road it is
+  // on (turned to match the way it is moving along it), then the last movement.
+  const gpsHeading = typeof riderLocation?.heading === 'number' ? riderLocation.heading : null;
+  const roadBearing = snapped
+    ? movementBearing !== null && angleBetween(snapped.segmentBearing, movementBearing) > 90
+      ? (snapped.segmentBearing + 180) % 360
+      : snapped.segmentBearing
+    : null;
+  const bearing = gpsHeading ?? roadBearing ?? movementBearing ?? 0;
+  const vehicle = vehicleKind(rider?.vehicleType);
   const riderLat = riderLocation?.lat;
   const riderLng = riderLocation?.lng;
   useEffect(() => {
@@ -332,7 +411,7 @@ export default function Tracker() {
     const riderPoint: LatLng = { latitude: riderLat, longitude: riderLng };
     const prev = lastRider.current;
     if (prev && (prev.latitude !== riderPoint.latitude || prev.longitude !== riderPoint.longitude)) {
-      setBearing(bearingBetween(prev, riderPoint));
+      setMovementBearing(bearingBetween(prev, riderPoint));
     }
     lastRider.current = riderPoint;
   }, [riderLat, riderLng]);
@@ -413,11 +492,24 @@ export default function Tracker() {
   // While queued, the rider has not started this order, so every step waits.
   const statusFor = (index: number): Status =>
     queued ? 'pending' : minStep > index ? 'completed' : minStep === index ? 'active' : 'pending';
-  const subtitleFor = (index: number) => {
+  // The same content the toast for this moment shows, from the trip watcher's live phase/ETA.
+  const livePhase = live?.phase;
+  const liveContent: TripAlertContent | null =
+    livePhase && livePhase !== 'searching' && livePhase !== 'delivered' && livePhase !== 'cancelled'
+      ? tripAlertContent(livePhase, {
+          riderName: rider?.firstName ?? null,
+          stationName: station?.name ?? null,
+          eta: live.eta,
+          condition: live.condition ?? null,
+          phase: livePhase,
+          ordersAhead: riderQueue?.ordersAhead,
+        })
+      : null;
+  const subtitleFor = (index: number): React.ReactNode => {
     if (queued && index === 0) return 'Up next';
     const state = statusFor(index);
     if (state === 'completed') return 'Done';
-    if (state === 'active') return 'In progress';
+    if (state === 'active') return liveContent ? <StepDetail content={liveContent} /> : 'In progress';
     return 'Waiting';
   };
 
@@ -493,7 +585,7 @@ export default function Tracker() {
 
           {riderPoint && status !== 'delivered' && (
             <Marker coordinate={riderPoint} anchor={{ x: 0.5, y: 0.5 }} flat>
-              <BikeRiderMarker bearing={bearing} />
+              <VehicleMarker kind={vehicle} bearing={bearing} />
             </Marker>
           )}
         </MapView>
@@ -580,11 +672,12 @@ export default function Tracker() {
                     ? queued.detail
                     : (statusBadge?.detail ?? 'Enjoy real time track system as your gas cylinder gets filled')}
               </Text>
-              {!reassigning && live?.eta && etaLead(live.phase) && (
+              {!reassigning && liveContent?.etaStrong && (
                 <View style={styles.etaRow}>
                   <Clock size={14} weight="bold" color={PRIMARY} />
+                  {/* Same clock line as the toast and the active step. */}
                   <Text style={styles.etaText}>
-                    {etaLead(live.phase)} {formatEtaRange(live.eta)}
+                    {liveContent.etaSoft} {liveContent.etaStrong}
                   </Text>
                   {/* A tag only for a delay actually seen: a queue at the pump or the rider stuck in traffic. */}
                   {live.condition && <Text style={styles.etaTraffic}>· {CONDITION_TEXT[live.condition]}</Text>}
@@ -606,26 +699,38 @@ export default function Tracker() {
                     <StackedStep
                       icon={QueuedIcon}
                       title={queued.ordersAhead === 1 ? 'Finishing a nearby delivery' : `Finishing ${queued.ordersAhead} deliveries`}
-                      subtitle={queued.startsIn ?? 'In progress'}
+                      subtitle={liveContent && livePhase === 'queued' ? <StepDetail content={liveContent} /> : (queued.startsIn ?? 'In progress')}
                       status="active"
                       isLast={false}
                     />
                   )}
-                  <StackedStep
-                    icon={STEPS[0].icon}
-                    title={STEPS[0].title}
-                    subtitle={subtitleFor(0)}
-                    status={statusFor(0)}
-                    isLast={false}
-                  />
-                  <FillingStep status={statusFor(1)} isLast={false} pumping={atStation} />
-                  <StackedStep
-                    icon={STEPS[2].icon}
-                    title={STEPS[2].title}
-                    subtitle={subtitleFor(2)}
-                    status={statusFor(2)}
-                    isLast
-                  />
+                  {TRIP_STEPS.map((step, i) => {
+                    // Once the rider has the cylinder, the first step becomes "Cylinder picked up".
+                    const Icon = i === 0 && hasPickedUp(status) ? CylinderIcon : STEP_ICONS[i];
+                    const isLast = i === TRIP_STEPS.length - 1;
+                    if (!Icon) {
+                      const subtitle = subtitleFor(i);
+                      return (
+                        <FillingStep
+                          key={step.key}
+                          status={statusFor(i)}
+                          isLast={isLast}
+                          pumping={atStation}
+                          detail={statusFor(i) === 'active' && typeof subtitle !== 'string' ? subtitle : undefined}
+                        />
+                      );
+                    }
+                    return (
+                      <StackedStep
+                        key={step.key}
+                        icon={Icon}
+                        title={i === 0 ? pickupStepTitle(status) : step.title}
+                        subtitle={subtitleFor(i)}
+                        status={statusFor(i)}
+                        isLast={isLast}
+                      />
+                    );
+                  })}
                 </View>
               </Animated.View>
             )}
@@ -633,19 +738,6 @@ export default function Tracker() {
         </GlassCard>
       </Animated.View>
 
-      <RatingSheet
-        visible={ratingSheetVisible}
-        riderName={rider?.firstName}
-        onClose={() => setRatingSheetVisible(false)}
-        onSubmit={async (score, feedback) => {
-          if (isDemo) return;
-          await rateOrder.mutateAsync({ score, comment: feedback || undefined });
-        }}
-        onReport={async (reason, details) => {
-          if (isDemo) return;
-          await reportDeliveryIssue(user, orderId, reason, details);
-        }}
-      />
     </View>
   );
 }
@@ -849,41 +941,103 @@ const styles = StyleSheet.create({
   riderCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    padding: 4,
-    borderRadius: 36,
-    backgroundColor: '#FAFAFA',
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.08)',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  riderLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+  },
+  // Photo 55, vehicle badge at (33, 25), rating pill at (6, 48).
+  riderVisual: {
+    width: 64.294,
+    height: 67,
   },
   riderAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 55,
+    height: 55,
+    borderRadius: 40,
+    overflow: 'hidden',
     backgroundColor: PRIMARY,
     alignItems: 'center',
     justifyContent: 'center',
   },
   riderAvatarText: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: '700',
+  },
+  vehicleBadge: {
+    position: 'absolute',
+    left: 33,
+    top: 25,
+    width: 31.294,
+    height: 31.294,
+    borderRadius: 100,
+    borderWidth: 1,
+    borderColor: '#fff',
+    backgroundColor: '#FAFAFA',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  vehicleBadgeImage: {
+    width: 21.08,
+    height: 21.08,
+  },
+  vehicleBadgeTilt: {
+    transform: [{ rotate: '-34.31deg' }],
+  },
+  ratingPill: {
+    position: 'absolute',
+    left: 6,
+    top: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 24,
+    backgroundColor: '#fff',
+    // Drop Shadow/200: 0 1 4 rgba(12,12,13,0.1) + 0 1 4 rgba(12,12,13,0.05).
+    shadowColor: '#0C0C0D',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  ratingText: {
+    fontSize: 12,
+    color: '#000',
+  },
+  riderInfo: {
+    flexShrink: 1,
+    alignItems: 'flex-start',
+    gap: 4,
   },
   riderName: {
     fontSize: 14,
     fontWeight: '700',
+    color: '#1D1D1D',
   },
-  riderPhone: {
+  plateChip: {
+    padding: 2,
+    borderRadius: 12,
+    backgroundColor: '#FAFAFA',
+  },
+  plateText: {
     fontSize: 12,
     color: 'rgba(0,0,0,0.6)',
   },
+  vehicleLabel: {
+    fontSize: 12,
+    color: 'rgba(0,0,0,0.4)',
+  },
   callButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: GREEN,
-    alignItems: 'center',
-    justifyContent: 'center',
+    padding: 10,
+    borderRadius: 40,
+    backgroundColor: '#34C759',
   },
   stepRow: {
     flexDirection: 'row',
@@ -928,12 +1082,39 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: 'rgba(0,0,0,0.6)',
   },
-  fillingTextRow: {
+  fillingTextColumn: {
     flex: 1,
+    paddingBottom: 24,
+    gap: 4,
+  },
+  stepDetail: {
+    gap: 4,
+  },
+  stepClock: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  stepClockText: {
+    fontSize: 10,
+    color: 'rgba(0,0,0,0.5)',
+  },
+  stepClockStrong: {
+    color: '#000',
+    fontWeight: '600',
+  },
+  stepClockDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: '#D9D9D9',
+    marginHorizontal: 2,
+  },
+  fillingTextRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingBottom: 24,
   },
   stepTitleInline: {
     fontSize: 12,
