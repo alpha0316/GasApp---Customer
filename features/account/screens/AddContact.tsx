@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PrimaryButton from '@/components/PrimaryButton';
-import BackButton from '@/components/BackButton';
+import { FormNote, FormRow, FormScreen, FormSection } from '@/components/form/Form';
 import { addContact, requestOtp } from '@/features/auth/api';
 import OtpCodeInput from '@/features/auth/OtpCodeInput';
 import { isValidEmail, isValidPhone } from '@/features/auth/profileGate';
@@ -16,7 +15,6 @@ type Params = RootStackParamList['AddContact'];
 // Adds an email or phone number to the signed-in account: enter it, then confirm with a code.
 export default function AddContact() {
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
   const { channel } = useRoute().params as Params;
   const setUser = useAuthStore((s) => s.setUser);
   const [target, setTarget] = useState('');
@@ -54,72 +52,54 @@ export default function AddContact() {
     }
   };
 
+  const footer = sentTo ? (
+    <PrimaryButton title={busy ? 'Verifying...' : 'Verify'} disabled={code === '' || busy} onPress={() => handleVerify()} />
+  ) : (
+    <PrimaryButton title={busy ? 'Sending...' : 'Send code'} disabled={!valid || busy} onPress={handleSend} />
+  );
+
   return (
-    <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <BackButton />
-      </View>
-
-      <View style={styles.body}>
-        <Text style={styles.title}>{isEmail ? 'Add your email' : 'Add your phone number'}</Text>
-        <Text style={styles.subtitle}>
-          {sentTo
-            ? `Enter the code we sent to ${sentTo}.`
-            : isEmail
-              ? 'We use your email for receipts and card payments.'
-              : 'We use your phone number to text you about your orders.'}
-        </Text>
-
-        {sentTo ? (
-          <>
-            <OtpCodeInput target={sentTo} onChange={setCode} onComplete={handleVerify} onResend={() => requestOtp(apiChannel, sentTo)}>
-              <PrimaryButton title={busy ? 'Verifying...' : 'Verify'} disabled={code === '' || busy} onPress={() => handleVerify()} />
-            </OtpCodeInput>
-            <TouchableOpacity onPress={() => setSentTo(null)} accessibilityRole="button" style={styles.link}>
-              <Text style={styles.linkText}>{isEmail ? 'Use a different email' : 'Use a different number'}</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <>
-            <Text style={styles.label}>{isEmail ? 'Email' : 'Phone Number'}</Text>
-            <TextInput
-              style={styles.input}
-              value={target}
-              onChangeText={setTarget}
-              placeholder={isEmail ? 'you@example.com' : '024 000 0000'}
-              keyboardType={isEmail ? 'email-address' : 'phone-pad'}
-              autoCapitalize="none"
-              autoCorrect={false}
-              textContentType={isEmail ? 'emailAddress' : 'telephoneNumber'}
-              accessibilityLabel={isEmail ? 'Email' : 'Phone number'}
-              returnKeyType="done"
-              onSubmitEditing={valid && !busy ? handleSend : undefined}
-            />
-            <PrimaryButton title={busy ? 'Sending...' : 'Send code'} disabled={!valid || busy} onPress={handleSend} />
-          </>
-        )}
-      </View>
-    </View>
+    <FormScreen title={isEmail ? 'Add Email' : 'Add Phone Number'} footer={footer}>
+      {sentTo ? (
+        <View style={styles.codeStep}>
+          <Text style={styles.codeIntro}>
+            Enter the code we sent to <Text style={styles.codeTarget}>{sentTo}</Text>.
+          </Text>
+          <OtpCodeInput target={sentTo} onChange={setCode} onComplete={handleVerify} onResend={() => requestOtp(apiChannel, sentTo)} />
+          <TouchableOpacity onPress={() => setSentTo(null)} accessibilityRole="button" style={styles.link}>
+            <Text style={styles.linkText}>{isEmail ? 'Use a different email' : 'Use a different number'}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <FormSection title="Contact">
+          <FormRow
+            label={isEmail ? 'Email' : 'Phone'}
+            value={target}
+            onChangeText={setTarget}
+            placeholder={isEmail ? 'you@example.com' : '024 000 0000'}
+            keyboardType={isEmail ? 'email-address' : 'phone-pad'}
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoFocus
+            textContentType={isEmail ? 'emailAddress' : 'telephoneNumber'}
+            returnKeyType="done"
+            onSubmitEditing={valid && !busy ? handleSend : undefined}
+          />
+          <FormNote>
+            {isEmail
+              ? "We use your email for receipts and card payments. We'll send a code to confirm it."
+              : "We use your phone number to text you about your orders. We'll send a code to confirm it."}
+          </FormNote>
+        </FormSection>
+      )}
+    </FormScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: 'white' },
-  header: { marginBottom: 16, minHeight: 40 },
-  body: { gap: 12 },
-  title: { fontSize: 24, fontWeight: '700' },
-  subtitle: { fontSize: 16, color: 'rgba(0,0,0,0.6)', marginBottom: 12 },
-  label: { fontSize: 14, fontWeight: '600' },
-  input: {
-    height: 56,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.20)',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    backgroundColor: '#F4F4F4',
-    marginBottom: 12,
-  },
+  codeStep: { padding: 16, gap: 16 },
+  codeIntro: { fontSize: 15, color: 'rgba(0,0,0,0.6)' },
+  codeTarget: { color: '#000', fontWeight: '600' },
   link: { alignItems: 'center', paddingVertical: 12 },
   linkText: { fontWeight: '700', color: '#000' },
 });

@@ -160,6 +160,9 @@ export interface RiderQueue {
 export interface RiderLocation {
   lat: number;
   lng: number;
+  // GPS course over ground from the rider's phone, in degrees (0 = north). Optional: when absent
+  // the tracker works the direction out from the road and the last positions.
+  heading?: number | null;
   updatedAt: string;
 }
 

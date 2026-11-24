@@ -1,6 +1,7 @@
 import { formatEta, formatEtaRange, trafficLabel, type Eta, type TrafficLevel } from './eta';
 import type { TripEvent, TripPhase } from './phase';
 import { CONDITION_TEXT, type TripCondition } from './conditions';
+import { PICKUP_DONE_TITLE, TRIP_STEPS } from './steps';
 
 export type AlertTone = 'info' | 'success' | 'warning' | 'error';
 export type AlertIcon = 'rider' | 'queue' | 'cylinder' | 'station' | 'pump' | 'home' | 'check' | 'alert';
@@ -23,27 +24,6 @@ export interface TripAlertContent {
   etaSoft: string | null;
   etaStrong: string | null;
   condition: string | null;
-}
-
-// What the live ETA on the tracker counts down to in each phase.
-export function etaLead(phase: TripPhase): string | null {
-  switch (phase) {
-    case 'queued':
-      return 'Starts in';
-    case 'to_customer_pickup':
-    case 'arriving_pickup':
-      return 'Pickup in';
-    case 'to_station':
-    case 'approaching_station':
-      return 'At the station in';
-    case 'filling':
-      return 'Back to you in';
-    case 'to_customer_dropoff':
-    case 'arriving_dropoff':
-      return 'Arrives in';
-    default:
-      return null;
-  }
 }
 
 export interface AlertContext {
@@ -96,7 +76,7 @@ export function tripAlertContent(event: TripEvent, ctx: AlertContext): TripAlert
     case 'to_customer_pickup':
       return {
         ...base,
-        title: 'Rider heading to your location',
+        title: TRIP_STEPS[0].title,
         body: 'Coming to collect your empty cylinder.',
         ...clock('Arriving To', `You in ${mins}`),
         tone: 'info',
@@ -115,7 +95,7 @@ export function tripAlertContent(event: TripEvent, ctx: AlertContext): TripAlert
     case 'to_station':
       return {
         ...base,
-        title: 'Cylinder picked up',
+        title: PICKUP_DONE_TITLE,
         body: `${rider} is heading to ${station}`,
         ...clock('Gets there', `in ${mins}`),
         tone: 'info',
@@ -133,7 +113,7 @@ export function tripAlertContent(event: TripEvent, ctx: AlertContext): TripAlert
     case 'filling':
       return {
         ...base,
-        title: 'Filling your cylinder',
+        title: TRIP_STEPS[1].title,
         body: `Your gas is being filled ${atStation(ctx.stationName)}`,
         ...clock('Back To', `You in ${mins}`),
         tone: 'info',
@@ -142,7 +122,7 @@ export function tripAlertContent(event: TripEvent, ctx: AlertContext): TripAlert
     case 'to_customer_dropoff':
       return {
         ...base,
-        title: 'On the way back to you',
+        title: TRIP_STEPS[2].title,
         body: `${rider} left ${station} with your full cylinder.`,
         ...clock('Arriving To', `You in ${mins}`),
         tone: 'info',

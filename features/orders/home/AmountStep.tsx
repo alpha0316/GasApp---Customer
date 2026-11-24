@@ -2,7 +2,7 @@ import React from 'react';
 import { Image, InputAccessoryView, Keyboard, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { ArrowLeft, Check, X } from 'phosphor-react-native';
 import GlassCard from '@/components/GlassCard';
-import { displayMoney } from '@/lib/money';
+import { CEDI, displayMoney } from '@/lib/money';
 import { styles } from '@/features/orders/screens/homeStyles';
 import { AMOUNT_INPUT_ACCESSORY_ID, RUBBER_CHANGE_FEE } from './constants';
 import type { OrderDraft } from './useOrderDraft';
@@ -55,7 +55,7 @@ export default function AmountStep({ draft, rubberChangeRequested, onToggleRubbe
               </View>
               <TextInput
                 editable={!fullFillFlags[index]}
-                value={fullFillFlags[index] ? 'Full' : `GH ${fillAmounts[index] ?? minFillMajor}`}
+                value={fullFillFlags[index] ? displayMoney(u.fullPrice, currency) : `${CEDI} ${fillAmounts[index] ?? minFillMajor}`}
                 onChangeText={(text) => draft.changeFillAmount(index, text)}
                 keyboardType="numeric"
                 returnKeyType="done"
@@ -66,7 +66,7 @@ export default function AmountStep({ draft, rubberChangeRequested, onToggleRubbe
             </View>
           ))}
 
-          <Text style={styles.minFillNote}>Min fill amount: GH {minFillMajor}</Text>
+          <Text style={styles.minFillNote}>Min fill amount: {displayMoney(minFillMajor * 100, currency)}</Text>
 
           <TouchableOpacity
             style={[styles.rubberChangeRow, rubberChangeRequested && styles.rubberChangeRowSelected]}

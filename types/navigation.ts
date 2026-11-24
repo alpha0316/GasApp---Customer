@@ -10,10 +10,19 @@ export type RootStackParamList = {
   Home: undefined;
   Orders: undefined;
   OrderDetails: { orderId: string };
+  RateDelivery: { orderId: string };
   Notification: undefined;
   NotificationSettings: undefined;
-  ContactUs: undefined;
+  // Help & Support. fromProfile: opened from Profile, so it shows a back button instead of the menu.
+  ContactUs: { fromProfile?: boolean } | undefined;
+  HelpTopic: { topicId: string; articleId?: string };
+  ContactSupport: { subject?: string } | undefined;
+  TermsPrivacy: undefined;
   SetPassword: undefined;
+  PrivacySecurity: undefined;
+  SavedPlaces: undefined;
+  // Edit a saved place by id, fill the Home/Work slot, or (neither) add a new place.
+  PlacePicker: { placeId?: string; slot?: 'home' | 'work' } | undefined;
   Account: undefined;
   PersonalInfo: undefined;
   AddContact: { channel: 'email' | 'phone' };

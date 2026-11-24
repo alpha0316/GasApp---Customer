@@ -58,6 +58,15 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
   try {
     payload = text ? JSON.parse(text) : undefined;
   } catch {
+    // Non-JSON bodies come from layers in front of the API: the rate limiter's plain-text 429,
+    // or Cloudflare's HTML page when the server is down or times out.
+    if (__DEV__) console.warn(`[api] ${res.status} non-JSON from ${path}:`, text.slice(0, 300));
+    if (res.status === 429) {
+      throw new ApiError(429, 'RATE_LIMITED', 'Too many attempts. Please wait a few minutes and try again.');
+    }
+    if (res.status >= 500) {
+      throw new ApiError(res.status, 'SERVER_UNAVAILABLE', 'The server is having trouble right now. Please try again shortly.');
+    }
     throw new ApiError(res.status, 'INVALID_RESPONSE', 'The server sent an unreadable response');
   }
 

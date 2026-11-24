@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Alert, TouchableOpacity, ScrollView, Linking, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -12,7 +12,6 @@ import {
   ShieldCheck,
   SignOut,
   Star,
-  Trash,
   User,
   type Icon,
 } from 'phosphor-react-native';
@@ -21,13 +20,11 @@ import { useAuthStore } from '@/features/auth/authStore';
 import { useOrderHistory } from '@/features/orders/hooks';
 import { DEMO_MODE, DEMO_ORDER_ID } from '@/features/tracking/demo';
 import { profileStats } from '@/features/account/profileStats';
-import { sendContactMessage } from '@/features/account/api';
-import { errorMessage } from '@/lib/api/client';
+import { displayMoney } from '@/lib/money';
+import RateAppSheet from '@/features/account/RateAppSheet';
 
 const PRIMARY = '#0A6CFF';
 
-// Android only: iOS needs the App Store id, which the app does not have until it is listed.
-const PLAY_STORE_URL = 'market://details?id=com.gasapp.customer';
 
 interface RowProps {
   icon: Icon;
@@ -58,7 +55,6 @@ function Stat({ label, value }: { label: string; value: string | null }) {
   );
 }
 
-const comingSoon = (what: string) => Alert.alert('Coming soon', `${what} will be available in a future update.`);
 
 // Profile: who the customer is, their order totals, and links to account settings and help.
 export default function Account() {
@@ -85,53 +81,7 @@ export default function Account() {
   // Phone and email side by side when the customer has both.
   const contact = [user?.phoneNumber, user?.email].filter(Boolean).join('  ·  ');
 
-  // The API has no delete endpoint yet, so the request goes to support through the contact
-  // form (which needs an email to reply to), then the customer is signed out.
-  const [deleting, setDeleting] = useState(false);
-  const sendDeletionRequest = async () => {
-    if (!user?.email) return;
-    setDeleting(true);
-    try {
-      await sendContactMessage({
-        firstName: user.firstName || 'GasApp',
-        lastName: user.lastName || 'customer',
-        email: user.email,
-        message: `ACCOUNT DELETION REQUEST\nUser ID: ${user.id}\nPhone: ${user.phoneNumber ?? 'none'}\nEmail: ${user.email}\nPlease delete this account and its personal data.`,
-      });
-      Alert.alert('Request sent', "We'll delete your account and confirm by email. You'll be signed out now.", [
-        { text: 'OK', onPress: () => void signOut() },
-      ]);
-    } catch (error) {
-      Alert.alert('Could not send the request', errorMessage(error));
-    } finally {
-      setDeleting(false);
-    }
-  };
-  const deleteAccount = () => {
-    if (!user?.email) {
-      Alert.alert('Add an email first', 'We need an email address to confirm your account deletion.', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Add email', onPress: () => navigation.navigate('AddContact', { channel: 'email' }) },
-      ]);
-      return;
-    }
-    Alert.alert(
-      'Delete your account?',
-      'Your profile, saved details and order history will be permanently deleted. This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete account', style: 'destructive', onPress: () => void sendDeletionRequest() },
-      ],
-    );
-  };
-
-  const rateApp = () => {
-    if (Platform.OS === 'android') {
-      Linking.openURL(PLAY_STORE_URL).catch(() => comingSoon('Rating GasApp'));
-    } else {
-      comingSoon('Rating GasApp');
-    }
-  };
+  const [rateAppOpen, setRateAppOpen] = useState(false);
 
   return (
     <View style={styles.container}>
@@ -162,7 +112,7 @@ export default function Account() {
               label="Total Expenses"
               value={
                 statsReady
-                  ? `${stats.currency === 'GHS' ? 'GHC' : stats.currency} ${Math.round(stats.totalSpent / 100).toLocaleString()}`
+                  ? displayMoney(stats.totalSpent, stats.currency)
                   : null
               }
             />
@@ -173,14 +123,14 @@ export default function Account() {
 
         <Text style={styles.section}>Account</Text>
         <Row icon={User} color="#8E2DA8" label="Personal Information" onPress={() => navigation.navigate('PersonalInfo')} />
-        <Row icon={ShieldCheck} color="#2F3DE0" label="Privacy & Security" onPress={() => navigation.navigate('SetPassword')} />
-        <Row icon={MapPin} color="#E5262A" label="Saved Addresses" onPress={() => comingSoon('Saved addresses')} />
+        <Row icon={ShieldCheck} color="#2F3DE0" label="Privacy & Security" onPress={() => navigation.navigate('PrivacySecurity')} />
+        <Row icon={MapPin} color="#E5262A" label="Saved Addresses" onPress={() => navigation.navigate('SavedPlaces')} />
 
         <Text style={styles.section}>Help & Preferences</Text>
         <Row icon={Bell} color="#F08A00" label="Notification" onPress={() => navigation.navigate('NotificationSettings')} />
-        <Row icon={Headset} color="#12A150" label="Help & Support" onPress={() => navigation.navigate('ContactUs')} />
-        <Row icon={Star} color="#E6B000" label="Rate GasApp" onPress={rateApp} />
-        <Row icon={FileText} color="#0E8C9C" label="Terms & Privacy" onPress={() => comingSoon('Terms & Privacy')} />
+        <Row icon={Headset} color="#12A150" label="Help & Support" onPress={() => navigation.navigate('ContactUs', { fromProfile: true })} />
+        <Row icon={Star} color="#E6B000" label="Rate GasApp" onPress={() => setRateAppOpen(true)} />
+        <Row icon={FileText} color="#0E8C9C" label="Terms & Privacy" onPress={() => navigation.navigate('TermsPrivacy')} />
 
         {DEMO_MODE && (
           <>
@@ -197,10 +147,16 @@ export default function Account() {
         <View style={styles.signOutGap} />
         <Row icon={SignOut} color="#6B7280" label="Sign Out" onPress={signOut} danger />
 
-        <Text style={styles.section}>Danger zone</Text>
-        <Row icon={Trash} color="#D92D20" label={deleting ? 'Sending request…' : 'Delete Account'} onPress={deleting ? () => {} : deleteAccount} danger />
-        <Text style={styles.deleteNote}>Permanently removes your account and personal data.</Text>
       </ScrollView>
+
+      <RateAppSheet
+        visible={rateAppOpen}
+        onClose={() => setRateAppOpen(false)}
+        onAddEmail={() => {
+          setRateAppOpen(false);
+          navigation.navigate('AddContact', { channel: 'email' });
+        }}
+      />
     </View>
   );
 }
@@ -270,5 +226,4 @@ const styles = StyleSheet.create({
   rowLabel: { flex: 1, fontSize: 15, color: '#000' },
   rowLabelDanger: { color: '#D92D20', fontWeight: '600' },
   signOutGap: { height: 16 },
-  deleteNote: { fontSize: 12, color: 'rgba(0,0,0,0.45)', marginTop: 2, marginLeft: 36 },
 });

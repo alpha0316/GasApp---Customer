@@ -1,10 +1,15 @@
-import { displayMoney, majorToMinor, roundBreakdown, roundToMajor } from '../money';
+import { displayMoney, formatMoney, majorToMinor, roundBreakdown, roundToMajor } from '../money';
 
 describe('money', () => {
   it('shows whole cedis, rounded to the nearest', () => {
-    expect(displayMoney(7439, 'GHS')).toBe('GH 74');
-    expect(displayMoney(7450, 'GHS')).toBe('GH 75');
-    expect(displayMoney(123400, 'GHS')).toBe('GH 1,234');
+    expect(displayMoney(7439, 'GHS')).toBe('₵ 74');
+    expect(displayMoney(7450, 'GHS')).toBe('₵ 75');
+    expect(displayMoney(123400, 'GHS')).toBe('₵ 1,234');
+  });
+
+  it('uses the cedi sign, never GH/GHS/GHC', () => {
+    expect(formatMoney(7439, 'GHS')).toBe('₵ 74.39');
+    expect(displayMoney(500, 'GHS')).not.toMatch(/GH/);
   });
 
   it('rounds to whole cedis', () => {

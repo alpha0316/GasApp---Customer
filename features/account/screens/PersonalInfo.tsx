@@ -1,29 +1,28 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PrimaryButton from '@/components/PrimaryButton';
-import BackButton from '@/components/BackButton';
+import { FormNote, FormRow, FormScreen, FormSection } from '@/components/form/Form';
 import { useAuthStore } from '@/features/auth/authStore';
 import { errorMessage } from '@/lib/api/client';
 
-// Name, email and phone number. Opened from the Profile screen.
+// Name, phone and email. Opened from the Profile screen. The name is edited here; a phone or
+// email is added through AddContact, which confirms it with a code.
 export default function PersonalInfo() {
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
   const saveProfile = useAuthStore((s) => s.saveProfile);
-  const currentName = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim();
-  const [fullName, setFullName] = useState(currentName);
+  const [firstName, setFirstName] = useState(user?.firstName ?? '');
+  const [lastName, setLastName] = useState(user?.lastName ?? '');
   const [saving, setSaving] = useState(false);
 
-  const unchanged = fullName.trim() === currentName;
+  const unchanged = firstName.trim() === (user?.firstName ?? '') && lastName.trim() === (user?.lastName ?? '');
+  const initial = (firstName.trim()[0] ?? user?.firstName?.[0] ?? 'G').toUpperCase();
 
   const handleSave = async () => {
-    const [firstName, ...rest] = fullName.trim().split(/\s+/);
     setSaving(true);
     try {
-      await saveProfile(firstName, rest.join(' '));
+      await saveProfile(firstName.trim(), lastName.trim());
       Alert.alert('Saved', 'Your name was updated.');
     } catch (error) {
       Alert.alert('Could not save your name', errorMessage(error));
@@ -33,71 +32,52 @@ export default function PersonalInfo() {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <BackButton />
-        <Text style={styles.headerTitle}>Personal Information</Text>
-        <View style={{ width: 40 }} />
-      </View>
-
-      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-        <Text style={styles.label}>Full Name</Text>
-        <TextInput
-          style={styles.input}
-          value={fullName}
-          onChangeText={setFullName}
-          maxLength={120}
-          accessibilityLabel="Full name"
-        />
+    <FormScreen
+      title="Personal Information"
+      footer={
         <PrimaryButton
-          title={saving ? 'Saving...' : 'Save name'}
-          disabled={saving || unchanged || fullName.trim() === ''}
+          title={saving ? 'Saving...' : 'Save'}
+          disabled={saving || unchanged || firstName.trim() === ''}
           onPress={handleSave}
         />
+      }
+    >
+      <View style={styles.avatar}>
+        <Text style={styles.avatarText}>{initial}</Text>
+      </View>
 
-        <Text style={styles.label}>Email</Text>
-        {user?.email ? (
-          <Text style={styles.value}>{user.email}</Text>
-        ) : (
-          <TouchableOpacity onPress={() => navigation.navigate('AddContact', { channel: 'email' })} accessibilityRole="button">
-            <Text style={styles.action}>Add email</Text>
-          </TouchableOpacity>
-        )}
+      <FormSection title="Basic info">
+        <FormRow label="First name" value={firstName} onChangeText={setFirstName} maxLength={60} autoCapitalize="words" textContentType="givenName" />
+        <FormRow label="Last name" value={lastName} onChangeText={setLastName} maxLength={60} autoCapitalize="words" textContentType="familyName" />
+      </FormSection>
 
-        <Text style={styles.label}>Phone Number</Text>
+      <FormSection title="Contact">
         {user?.phoneNumber ? (
-          <Text style={styles.value}>{user.phoneNumber}</Text>
+          <FormRow label="Phone" value={user.phoneNumber} readOnly />
         ) : (
-          <TouchableOpacity onPress={() => navigation.navigate('AddContact', { channel: 'phone' })} accessibilityRole="button">
-            <Text style={styles.action}>Add phone number</Text>
-          </TouchableOpacity>
+          <FormRow label="Phone" placeholder="Add phone number" onPress={() => navigation.navigate('AddContact', { channel: 'phone' })} />
         )}
-      </ScrollView>
-    </View>
+        {user?.email ? (
+          <FormRow label="Email" value={user.email} readOnly />
+        ) : (
+          <FormRow label="Email" placeholder="Add email" onPress={() => navigation.navigate('AddContact', { channel: 'email' })} />
+        )}
+        <FormNote>Your phone number and email are verified with a code, so they can&apos;t be edited here.</FormNote>
+      </FormSection>
+    </FormScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: 'white' },
-  header: {
-    flexDirection: 'row',
+  avatar: {
+    alignSelf: 'center',
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: '#0A6CFF',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
+    justifyContent: 'center',
+    marginTop: 8,
   },
-  headerTitle: { fontSize: 17, fontWeight: '700' },
-  body: { gap: 12, padding: 16 },
-  label: { fontSize: 14, fontWeight: '600', marginTop: 8 },
-  value: { fontSize: 16, color: 'rgba(0,0,0,0.7)' },
-  input: {
-    height: 56,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.20)',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    backgroundColor: '#F4F4F4',
-  },
-  action: { fontSize: 16, fontWeight: '700', color: '#007AFF', paddingVertical: 8 },
+  avatarText: { color: '#fff', fontSize: 34, fontWeight: '700' },
 });

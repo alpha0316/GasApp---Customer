@@ -1,4 +1,5 @@
 import type { OrderStatus, RiderQueue } from '@/lib/api/types';
+import { TRIP_STEPS } from '@/features/trip/steps';
 
 export type StepState = 'completed' | 'active' | 'pending';
 
@@ -20,22 +21,35 @@ export const canCancel = (status: OrderStatus) => status === 'pending_payment' |
 export const hasRider = (status: OrderStatus) =>
   status === 'rider_assigned' || status === 'picked_up' || status === 'filling' || status === 'en_route_to_customer' || status === 'delivered';
 
-// The tracker shows three steps: rider heading to the station, filling, on the way to the customer.
-export function stepStates(status: OrderStatus): [StepState, StepState, StepState] {
+type TripStepStates = [StepState, StepState, StepState];
+
+// The tracker's three steps (features/trip/steps.ts): pickup (rider heading to the customer,
+// then "Cylinder picked up" on the way to the station), filling, on the way back.
+export function stepStates(status: OrderStatus): TripStepStates {
+  const active = (i: number): TripStepStates =>
+    [0, 1, 2].map((n) => (n < i ? 'completed' : n === i ? 'active' : 'pending')) as TripStepStates;
   switch (status) {
     case 'rider_assigned':
     case 'picked_up':
-      return ['active', 'pending', 'pending'];
+      return active(0);
     case 'filling':
-      return ['completed', 'active', 'pending'];
+      return active(1);
     case 'en_route_to_customer':
-      return ['completed', 'completed', 'active'];
+      return active(2);
     case 'delivered':
-      return ['completed', 'completed', 'completed'];
+      return active(3);
     default:
       return ['pending', 'pending', 'pending'];
   }
 }
+
+// The rider has collected the empty cylinder (picked_up and every later status).
+export const hasPickedUp = (status: OrderStatus | undefined): boolean =>
+  status === 'picked_up' || status === 'filling' || status === 'en_route_to_customer' || status === 'delivered';
+
+// The first step reads "Rider heading to your location" until the rider has the cylinder.
+export const pickupStepTitle = (status: OrderStatus | undefined): string =>
+  hasPickedUp(status) ? TRIP_STEPS[0].doneTitle : TRIP_STEPS[0].title;
 
 export const SIZE_NAME = { small: 'Small Size', medium: 'Medium Size', large: 'Large Size' } as const;
 

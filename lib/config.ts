@@ -21,3 +21,7 @@ export const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID
 // Google sign-in stays on for Android (where the APK build has it linked) and off for iOS
 // until the iOS dev client is rebuilt with the module included — then drop this flag.
 export const GOOGLE_SIGNIN_ENABLED = Platform.OS === 'android';
+
+// TEMP: EXPO_PUBLIC_OTP_INTEGRATION=false skips sending and checking OTP codes: any code signs in
+// to a local stand-in session (no API token, so authenticated API calls will fail). Remove for release.
+export const OTP_INTEGRATION = process.env.EXPO_PUBLIC_OTP_INTEGRATION !== 'false';

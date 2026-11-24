@@ -20,6 +20,9 @@ import { useNearbyStations } from '@/features/orders/home/useNearbyStations';
 import { useOrderDraft } from '@/features/orders/home/useOrderDraft';
 import { useOrderSubmission } from '@/features/orders/home/useOrderSubmission';
 import { usePickupSchedule } from '@/features/orders/home/usePickupSchedule';
+import { useAuthStore } from '@/features/auth/authStore';
+import { orderedPlaces, usePlacesStore } from '@/features/places/store';
+import { placeIcon } from '@/features/places/icons';
 
 export default function Home() {
   const insets = useSafeAreaInsets();
@@ -32,6 +35,12 @@ export default function Home() {
   const draft = useOrderDraft(location.userLocation, step === 'amount' || step === 'checkout');
   const submission = useOrderSubmission();
   const areasQuery = useAreas();
+  const userId = useAuthStore((s) => s.user?.id);
+  const savedPlaces = usePlacesStore((s) => s.places);
+  const loadPlaces = usePlacesStore((s) => s.load);
+  useEffect(() => {
+    if (userId) void loadPlaces(userId);
+  }, [userId, loadPlaces]);
   const settings = useSettings();
   // The picked station's distance surcharge on top of the Delivery Fee (0 for the closest).
   const chosenStation = nearby.stations.find((s) => s.key === nearby.selectedStation) ?? null;
@@ -100,8 +109,14 @@ export default function Home() {
     });
   };
 
-  // Service areas from the API stand in for saved places.
-  const presets = (areasQuery.data ?? []).map((area) => ({ name: area.name, ...fromGeoPoint(area.center) }));
+  // The customer's saved places (Home, Work, then their own), then the service areas.
+  const { home, work, others } = orderedPlaces(savedPlaces);
+  const presets = [
+    ...[home, work, ...others]
+      .filter((p) => p !== null)
+      .map((p) => ({ key: p.id, name: p.label, detail: p.address, icon: placeIcon(p.icon), latitude: p.latitude, longitude: p.longitude })),
+    ...(areasQuery.data ?? []).map((area) => ({ key: `area-${area.name}`, name: area.name, ...fromGeoPoint(area.center) })),
+  ];
 
   return (
     <View style={styles.main}>

@@ -38,7 +38,18 @@ const OTPVerification = () => {
       </View>
       <Text style={styles.label}>Enter OTP Code</Text>
       <Text style={styles.subtitle}>
-        Enter the verification code we just sent to {channel === 'email' ? 'your email' : 'your mobile number'}.
+        Enter the verification code we just sent to{' '}
+        {target ? (
+          <Text style={styles.target}>{target}</Text>
+        ) : channel === 'email' ? (
+          'your email'
+        ) : (
+          'your mobile number'
+        )}
+        .
+      </Text>
+      <Text style={styles.change} onPress={() => navigation.goBack()} accessibilityRole="button">
+        {channel === 'email' ? 'Wrong email?' : 'Wrong number?'} <Text style={styles.changeLink}>Change it</Text>
       </Text>
 
       <OtpCodeInput target={target} onChange={setCode} onComplete={handleVerifyOTP} onResend={() => requestOtp(apiChannel, target)}>
@@ -61,8 +72,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   subtitle: {
-    marginBottom: 24,
+    marginBottom: 8,
     color: 'rgba(0, 0, 0, 0.60)',
+  },
+  target: {
+    color: '#000',
+    fontWeight: '600',
+  },
+  change: {
+    marginBottom: 24,
+    fontSize: 13,
+    color: 'rgba(0, 0, 0, 0.60)',
+  },
+  changeLink: {
+    color: '#000',
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
   header: {
     flexDirection: 'row',
